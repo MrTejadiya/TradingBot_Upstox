@@ -1,0 +1,39 @@
+{
+  "app": {
+    "mode": "dry-run",
+    "live_trading_enabled": false
+  },
+  "upstox": {
+    "access_token_env": "UPSTOX_ACCESS_TOKEN"
+  },
+  "input": {
+    "instruments_csv": "instruments.csv"
+  },
+  "market_data": {
+    "candle_intervals": ["1d", "1h", "15m"]
+  },
+  "strategies": {
+    "buy_signal_mode": "weighted_score",
+    "sell_signal_mode": "first_exit_wins",
+    "min_buy_score": 0.65
+  },
+  "exit_rules": {
+    "default_target_profit_pct": 10.0,
+    "default_stop_loss_pct": 3.0
+  },
+  "risk": {
+    "max_orders_per_day": 20,
+    "max_daily_traded_value": 100000.0
+  },
+  "rate_limits": {
+    "order_api": {
+      "safe_requests_per_second": 2.0
+    }
+  },
+  "storage": {
+    "sqlite_path": "bot.sqlite3"
+  },
+  "logging": {
+    "log_directory": "logs"
+  }
+}

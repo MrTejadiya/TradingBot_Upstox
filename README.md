@@ -20,5 +20,13 @@ If Ninja is not available, omit `-G "Ninja"` and let CMake choose a local genera
 .\build\tradingbot_upstox.exe --mode show-orders
 ```
 
-`dry-run` is the default mode. `live` is recognized but blocked until explicit live-trading gates are implemented.
+`dry-run` is the default mode. `live` requires explicit live-trading gates.
 
+## Configuration
+
+Version 1 uses JSON configuration. The loader validates these required sections:
+`app`, `upstox`, `input`, `market_data`, `strategies`, `exit_rules`, `risk`,
+`rate_limits`, `storage`, and `logging`.
+
+Start from `config.example.json` and provide access tokens through the configured
+environment variable, not in the config file.

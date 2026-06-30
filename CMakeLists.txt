@@ -16,6 +16,7 @@ add_library(tradingbot_core
     src/core/domain.cpp
     src/app/cli.cpp
     src/app/operating_mode.cpp
+    src/infra/config.cpp
 )
 
 target_include_directories(tradingbot_core
