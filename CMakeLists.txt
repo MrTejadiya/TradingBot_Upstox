@@ -19,6 +19,7 @@ add_library(tradingbot_core
     src/infra/config.cpp
     src/infra/credentials.cpp
     src/infra/instrument_csv.cpp
+    src/infra/logger.cpp
 )
 
 target_include_directories(tradingbot_core

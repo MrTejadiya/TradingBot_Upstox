@@ -40,3 +40,9 @@ before output.
 The CSV loader reads `instrument_key` as the canonical identifier. `symbol` is
 display metadata only. Minimum supported columns are `instrument_key`, `symbol`,
 `enabled`, `quantity`, `max_position_qty`, and `target_profit_pct`.
+
+## Logging
+
+Structured log records are emitted as single-line JSON-like entries with secret
+redaction enabled by default. Daily file rotation is represented by date-based
+log file names such as `tradingbot-20260630.log`.
