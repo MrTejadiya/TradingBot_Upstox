@@ -23,6 +23,7 @@ add_library(tradingbot_core
     src/infra/logger.cpp
     src/infra/market_feed.cpp
     src/infra/market_quote_service.cpp
+    src/infra/portfolio_sync_service.cpp
     src/infra/upstox_api_client.cpp
 )
 
