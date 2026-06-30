@@ -70,3 +70,6 @@ into the shared `PortfolioState` model for downstream risk and order decisions.
 
 The strategy module includes baseline technical indicators over candle close
 prices: SMA, EMA, RSI, and MACD.
+
+Strategies share a common evaluation interface with instrument, candles, quote,
+and portfolio context, returning validated strategy signals plus diagnostics.
