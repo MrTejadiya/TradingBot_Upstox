@@ -46,3 +46,9 @@ display metadata only. Minimum supported columns are `instrument_key`, `symbol`,
 Structured log records are emitted as single-line JSON-like entries with secret
 redaction enabled by default. Daily file rotation is represented by date-based
 log file names such as `tradingbot-20260630.log`.
+
+## Upstox API Client
+
+The initial REST client is transport-agnostic. It applies bearer authentication,
+records redacted request metadata, and retries transient HTTP statuses through a
+bounded retry policy.

@@ -20,6 +20,7 @@ add_library(tradingbot_core
     src/infra/credentials.cpp
     src/infra/instrument_csv.cpp
     src/infra/logger.cpp
+    src/infra/upstox_api_client.cpp
 )
 
 target_include_directories(tradingbot_core

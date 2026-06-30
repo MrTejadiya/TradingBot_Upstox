@@ -53,3 +53,11 @@ add_executable(tradingbot_logger_tests
 target_link_libraries(tradingbot_logger_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_logger_tests COMMAND tradingbot_logger_tests)
+
+add_executable(tradingbot_upstox_api_client_tests
+    infra/upstox_api_client_tests.cpp
+)
+
+target_link_libraries(tradingbot_upstox_api_client_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_upstox_api_client_tests COMMAND tradingbot_upstox_api_client_tests)
