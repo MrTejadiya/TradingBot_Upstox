@@ -30,3 +30,7 @@ Version 1 uses JSON configuration. The loader validates these required sections:
 
 Start from `config.example.json` and provide access tokens through the configured
 environment variable, not in the config file.
+
+The credential loader fails closed when the configured token environment variable
+is missing. Logs and metadata should pass secrets through the redaction helpers
+before output.

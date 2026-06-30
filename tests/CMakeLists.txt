@@ -29,3 +29,11 @@ add_executable(tradingbot_config_tests
 target_link_libraries(tradingbot_config_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_config_tests COMMAND tradingbot_config_tests)
+
+add_executable(tradingbot_credentials_tests
+    infra/credentials_tests.cpp
+)
+
+target_link_libraries(tradingbot_credentials_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_credentials_tests COMMAND tradingbot_credentials_tests)
