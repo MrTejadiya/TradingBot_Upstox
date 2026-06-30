@@ -56,3 +56,8 @@ bounded retry policy.
 The market quote service fetches LTP data through Upstox API V3 at
 `/v3/market-quote/ltp?instrument_key=...` and maps `last_price` into a
 `QuoteSnapshot`.
+
+Historical candles are fetched through the V3 historical candle endpoint and
+stored through a cache interface. The current implementation includes an
+in-memory cache for tests; the SQLite-backed cache belongs with the persistence
+storage work.
