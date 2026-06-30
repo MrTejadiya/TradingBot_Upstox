@@ -4,6 +4,7 @@
 #include <fstream>
 #include <map>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
@@ -91,12 +92,18 @@ std::optional<std::string> field_at(const std::vector<std::string>& row, const s
     return trim(row[it->second]);
 }
 
-bool parse_bool(const std::string& value, bool default_value) {
+std::optional<bool> parse_bool(const std::string& value) {
     const auto normalized = lower_copy(trim(value));
     if (normalized.empty()) {
-        return default_value;
+        return std::nullopt;
     }
-    return normalized == "true" || normalized == "1" || normalized == "yes" || normalized == "y";
+    if (normalized == "true" || normalized == "1" || normalized == "yes" || normalized == "y") {
+        return true;
+    }
+    if (normalized == "false" || normalized == "0" || normalized == "no" || normalized == "n") {
+        return false;
+    }
+    return std::nullopt;
 }
 
 core::Quantity parse_quantity(const std::string& value) {
@@ -134,16 +141,24 @@ core::Exchange parse_exchange(const std::string& value) {
 }  // namespace
 
 InstrumentCsvLoadResult load_instruments_csv_file(const std::string& path) {
+    return load_instruments_csv_file(path, {});
+}
+
+InstrumentCsvLoadResult load_instruments_csv_file(const std::string& path, const InstrumentCsvLoadOptions& options) {
     std::ifstream file(path);
     if (!file) {
         return {.ok = false, .errors = {"unable to open instrument CSV file: " + path}};
     }
     std::ostringstream buffer;
     buffer << file.rdbuf();
-    return load_instruments_csv_text(buffer.str());
+    return load_instruments_csv_text(buffer.str(), options);
 }
 
 InstrumentCsvLoadResult load_instruments_csv_text(const std::string& csv_text) {
+    return load_instruments_csv_text(csv_text, {});
+}
+
+InstrumentCsvLoadResult load_instruments_csv_text(const std::string& csv_text, const InstrumentCsvLoadOptions& options) {
     InstrumentCsvLoadResult result;
     const auto lines = split_lines(csv_text);
     if (lines.empty()) {
@@ -153,19 +168,33 @@ InstrumentCsvLoadResult load_instruments_csv_text(const std::string& csv_text) {
 
     const auto headers = parse_csv_record(lines.front());
     const auto header_index = build_header_index(headers);
-    if (header_index.find("instrument_key") == header_index.end()) {
-        result.errors.push_back("instrument CSV must contain instrument_key column");
+    const std::vector<std::string> required_headers{
+        "instrument_key", "symbol", "enabled", "quantity", "max_position_qty", "target_profit_pct"};
+    for (const auto& header : required_headers) {
+        if (header_index.find(header) == header_index.end()) {
+            result.errors.push_back("instrument CSV must contain " + header + " column");
+        }
+    }
+    if (!result.errors.empty()) {
         return result;
     }
 
+    std::set<std::string> seen_keys;
     for (std::size_t line_index = 1; line_index < lines.size(); ++line_index) {
         const auto row = parse_csv_record(lines[line_index]);
         core::Instrument instrument;
+        std::vector<std::string> row_errors;
         try {
             instrument.key.value = field_at(row, header_index, "instrument_key").value_or("");
             instrument.symbol = field_at(row, header_index, "symbol").value_or("");
             instrument.exchange = parse_exchange(field_at(row, header_index, "exchange").value_or(""));
-            instrument.enabled = parse_bool(field_at(row, header_index, "enabled").value_or("true"), true);
+            const auto enabled_value = field_at(row, header_index, "enabled").value_or("");
+            const auto parsed_enabled = parse_bool(enabled_value);
+            if (!parsed_enabled) {
+                row_errors.push_back("enabled must be parseable as true or false");
+            } else {
+                instrument.enabled = *parsed_enabled;
+            }
             instrument.quantity = parse_quantity(field_at(row, header_index, "quantity").value_or(""));
             instrument.max_position_quantity = parse_quantity(field_at(row, header_index, "max_position_qty").value_or(""));
             instrument.manual_buy_price = parse_optional_money(field_at(row, header_index, "manual_buy_price").value_or(""));
@@ -179,14 +208,51 @@ InstrumentCsvLoadResult load_instruments_csv_text(const std::string& csv_text) {
             instrument.strategy_profile = field_at(row, header_index, "strategy_profile").value_or("");
             instrument.notes = field_at(row, header_index, "notes").value_or("");
         } catch (const std::exception& ex) {
-            result.errors.push_back("row " + std::to_string(line_index + 1) + " could not be parsed: " + ex.what());
+            row_errors.push_back(std::string{"could not be parsed: "} + ex.what());
+        }
+
+        if (instrument.key.value.empty()) {
+            row_errors.push_back("instrument_key is mandatory");
+        } else if (!seen_keys.insert(instrument.key.value).second) {
+            row_errors.push_back("duplicate instrument_key: " + instrument.key.value);
+        }
+        if (instrument.quantity <= 0) {
+            row_errors.push_back("quantity must be a positive integer");
+        }
+        if (instrument.max_position_quantity <= 0) {
+            row_errors.push_back("max_position_qty must be a positive integer");
+        }
+        if (instrument.target_profit_pct < 0.0) {
+            row_errors.push_back("target_profit_pct must be non-negative");
+        }
+        if (instrument.stop_loss_pct && *instrument.stop_loss_pct < 0.0) {
+            row_errors.push_back("stop_loss_pct must be non-negative");
+        }
+        if (instrument.manual_buy_price && *instrument.manual_buy_price <= 0.0) {
+            row_errors.push_back("manual_buy_price must be positive");
+        }
+        if (instrument.manual_target_price && *instrument.manual_target_price <= 0.0) {
+            row_errors.push_back("manual_target_price must be positive");
+        }
+        if (!instrument.strategy_profile.empty() && !options.strategy_profiles.empty() &&
+            options.strategy_profiles.find(instrument.strategy_profile) == options.strategy_profiles.end()) {
+            row_errors.push_back("strategy_profile does not exist: " + instrument.strategy_profile);
+        }
+
+        if (!row_errors.empty()) {
+            for (const auto& error : row_errors) {
+                result.errors.push_back("row " + std::to_string(line_index + 1) + ": " + error);
+            }
+            if (!options.skip_invalid_rows) {
+                continue;
+            }
             continue;
         }
 
         result.instruments.push_back(std::move(instrument));
     }
 
-    result.ok = result.errors.empty();
+    result.ok = options.skip_invalid_rows ? !result.instruments.empty() : result.errors.empty();
     return result;
 }
 

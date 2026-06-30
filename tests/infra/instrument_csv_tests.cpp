@@ -69,6 +69,16 @@ void fails_without_instrument_key_header() {
     require(result.errors.front().find("instrument_key") != std::string::npos, "error should name instrument_key");
 }
 
+void fails_without_minimum_required_headers() {
+    const auto result = tradingbot::infra::load_instruments_csv_text(
+        "instrument_key,symbol,enabled,quantity,target_profit_pct\n"
+        "NSE_EQ|INE002A01018,RELIANCE,true,1,10\n");
+
+    require(!result.ok, "missing minimum header should fail");
+    require(result.errors.front().find("max_position_qty") != std::string::npos,
+            "error should name missing minimum header");
+}
+
 void loads_from_file() {
     const auto path = std::string{"instrument_csv_test_tmp.csv"};
     {
@@ -95,6 +105,69 @@ void reports_malformed_numeric_field_without_throwing() {
     require(result.errors.front().find("row 2") != std::string::npos, "error should include row number");
 }
 
+void rejects_duplicate_instrument_keys() {
+    const auto result = tradingbot::infra::load_instruments_csv_text(
+        "instrument_key,symbol,enabled,quantity,max_position_qty,target_profit_pct\n"
+        "NSE_EQ|INE002A01018,RELIANCE,true,1,2,10\n"
+        "NSE_EQ|INE002A01018,RELIANCE,true,1,2,10\n");
+
+    require(!result.ok, "duplicate keys should fail");
+    require(result.errors.back().find("duplicate instrument_key") != std::string::npos, "duplicate error should be clear");
+}
+
+void rejects_invalid_enabled_value() {
+    const auto result = tradingbot::infra::load_instruments_csv_text(
+        "instrument_key,symbol,enabled,quantity,max_position_qty,target_profit_pct\n"
+        "NSE_EQ|INE002A01018,RELIANCE,maybe,1,2,10\n");
+
+    require(!result.ok, "invalid enabled should fail");
+    require(result.errors.front().find("enabled") != std::string::npos, "enabled error should be reported");
+}
+
+void rejects_non_positive_quantities_and_negative_percentages() {
+    const auto result = tradingbot::infra::load_instruments_csv_text(
+        "instrument_key,symbol,enabled,quantity,max_position_qty,stop_loss_pct,target_profit_pct\n"
+        "NSE_EQ|INE002A01018,RELIANCE,true,0,-2,-1,-10\n");
+
+    require(!result.ok, "invalid quantities and percentages should fail");
+    require(result.errors.size() >= 4, "all row validation errors should be collected");
+}
+
+void rejects_non_positive_manual_prices() {
+    const auto result = tradingbot::infra::load_instruments_csv_text(
+        "instrument_key,symbol,enabled,quantity,max_position_qty,manual_buy_price,manual_target_price,target_profit_pct\n"
+        "NSE_EQ|INE002A01018,RELIANCE,true,1,2,0,-5,10\n");
+
+    require(!result.ok, "non-positive manual prices should fail");
+    require(result.errors.size() >= 2, "manual price errors should be collected");
+}
+
+void rejects_unknown_strategy_profile_when_profiles_are_configured() {
+    tradingbot::infra::InstrumentCsvLoadOptions options;
+    options.strategy_profiles = {"delivery"};
+    const auto result = tradingbot::infra::load_instruments_csv_text(
+        "instrument_key,symbol,enabled,quantity,max_position_qty,target_profit_pct,strategy_profile\n"
+        "NSE_EQ|INE002A01018,RELIANCE,true,1,2,10,unknown\n",
+        options);
+
+    require(!result.ok, "unknown strategy profile should fail");
+    require(result.errors.front().find("strategy_profile") != std::string::npos, "strategy profile error should report");
+}
+
+void skips_invalid_rows_when_enabled() {
+    tradingbot::infra::InstrumentCsvLoadOptions options;
+    options.skip_invalid_rows = true;
+    const auto result = tradingbot::infra::load_instruments_csv_text(
+        "instrument_key,symbol,enabled,quantity,max_position_qty,target_profit_pct\n"
+        "NSE_EQ|BAD,BAD,maybe,0,0,-1\n"
+        "NSE_EQ|INE002A01018,RELIANCE,true,1,2,10\n",
+        options);
+
+    require(result.ok, "skip_invalid_rows should allow valid rows to load");
+    require(result.instruments.size() == 1, "only valid row should load");
+    require(!result.errors.empty(), "skipped invalid row should still report errors");
+}
+
 }  // namespace
 
 int main() {
@@ -102,7 +175,14 @@ int main() {
     loads_recommended_columns_and_quoted_notes();
     treats_symbol_as_metadata_only();
     fails_without_instrument_key_header();
+    fails_without_minimum_required_headers();
     loads_from_file();
     reports_malformed_numeric_field_without_throwing();
+    rejects_duplicate_instrument_keys();
+    rejects_invalid_enabled_value();
+    rejects_non_positive_quantities_and_negative_percentages();
+    rejects_non_positive_manual_prices();
+    rejects_unknown_strategy_profile_when_profiles_are_configured();
+    skips_invalid_rows_when_enabled();
     return 0;
 }
