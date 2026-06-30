@@ -44,12 +44,37 @@ void rejects_unknown_mode() {
     require(result.error.find("unsupported mode") != std::string::npos, "unknown mode error should be clear");
 }
 
+void parses_live_gate_flags() {
+    const auto result = tradingbot::app::parse_cli(
+        {"--mode=live", "--live-trading-enabled", "--confirm-live-trading"});
+
+    require(result.ok, "live gate flags should parse");
+    require(result.options.mode == tradingbot::app::Mode::Live, "live mode should parse with equals syntax");
+    require(result.options.live_trading_enabled, "live trading enabled flag should parse");
+    require(result.options.live_trading_confirmed, "live trading confirmation flag should parse");
+}
+
 void blocks_live_mode_in_scaffold() {
     std::ostringstream out;
     std::ostringstream err;
-    const auto code = tradingbot::app::run_cli({tradingbot::app::Mode::Live, false}, out, err);
-    require(code != 0, "live mode should not run in scaffold");
-    require(err.str().find("blocked") != std::string::npos, "live mode should explain that it is blocked");
+    tradingbot::app::CliOptions options;
+    options.mode = tradingbot::app::Mode::Live;
+    const auto code = tradingbot::app::run_cli(options, out, err);
+    require(code != 0, "live mode should not run without gates");
+    require(err.str().find("live_trading_enabled=true") != std::string::npos, "live mode should explain missing gate");
+}
+
+void allows_live_mode_after_explicit_gates() {
+    std::ostringstream out;
+    std::ostringstream err;
+    tradingbot::app::CliOptions options;
+    options.mode = tradingbot::app::Mode::Live;
+    options.live_trading_enabled = true;
+    options.live_trading_confirmed = true;
+
+    const auto code = tradingbot::app::run_cli(options, out, err);
+    require(code == 0, "live mode should run after explicit gates");
+    require(out.str().find("gates are satisfied") != std::string::npos, "live mode should confirm gates");
 }
 
 }  // namespace
@@ -58,6 +83,8 @@ int main() {
     parses_default_dry_run_mode();
     parses_all_declared_modes();
     rejects_unknown_mode();
+    parses_live_gate_flags();
     blocks_live_mode_in_scaffold();
+    allows_live_mode_after_explicit_gates();
     return 0;
 }

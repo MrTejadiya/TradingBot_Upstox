@@ -15,6 +15,7 @@ option(TRADINGBOT_BUILD_TESTS "Build TradingBot Upstox tests" ON)
 add_library(tradingbot_core
     src/core/domain.cpp
     src/app/cli.cpp
+    src/app/operating_mode.cpp
 )
 
 target_include_directories(tradingbot_core

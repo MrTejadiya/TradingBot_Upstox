@@ -1,5 +1,7 @@
 #include "tradingbot/app/cli.hpp"
 
+#include "tradingbot/app/operating_mode.hpp"
+
 #include <cstddef>
 #include <ostream>
 #include <string>
@@ -62,6 +64,16 @@ CliResult parse_cli(std::vector<std::string> args) {
             return result;
         }
 
+        if (arg == "--live-trading-enabled") {
+            result.options.live_trading_enabled = true;
+            continue;
+        }
+
+        if (arg == "--confirm-live-trading") {
+            result.options.live_trading_confirmed = true;
+            continue;
+        }
+
         if (arg == "--mode") {
             if (index + 1 >= args.size()) {
                 result.ok = false;
@@ -106,6 +118,16 @@ int run_cli(const CliOptions& options, std::ostream& out, std::ostream& err) {
         return 0;
     }
 
+    const auto validation = validate_operating_mode({
+        .mode = options.mode,
+        .live_trading_enabled = options.live_trading_enabled,
+        .live_trading_confirmed = options.live_trading_confirmed,
+    });
+    if (!validation.ok) {
+        err << validation.error << "\n";
+        return 2;
+    }
+
     switch (options.mode) {
         case Mode::Validate:
             out << "validate mode selected: configuration and CSV validation scaffold is ready.\n";
@@ -117,8 +139,8 @@ int run_cli(const CliOptions& options, std::ostream& out, std::ostream& err) {
             out << "paper mode is reserved for a future portfolio simulator.\n";
             return 0;
         case Mode::Live:
-            err << "live mode is blocked until explicit live-trading gates are implemented.\n";
-            return 2;
+            out << "live mode selected: live order placement gates are satisfied.\n";
+            return 0;
         case Mode::ShowOrders:
             out << "show-orders mode selected: SQLite order display scaffold is ready.\n";
             return 0;
@@ -130,8 +152,10 @@ int run_cli(const CliOptions& options, std::ostream& out, std::ostream& err) {
 
 void print_usage(std::ostream& out) {
     out << "Usage: tradingbot_upstox [--mode <validate|dry-run|paper|live|show-orders>]\n"
+        << "       [--live-trading-enabled] [--confirm-live-trading]\n"
         << "\n"
-        << "Default mode: dry-run\n";
+        << "Default mode: dry-run\n"
+        << "Live mode requires both --live-trading-enabled and --confirm-live-trading.\n";
 }
 
 }  // namespace tradingbot::app
