@@ -52,3 +52,7 @@ log file names such as `tradingbot-20260630.log`.
 The initial REST client is transport-agnostic. It applies bearer authentication,
 records redacted request metadata, and retries transient HTTP statuses through a
 bounded retry policy.
+
+The market quote service fetches LTP data through Upstox API V3 at
+`/v3/market-quote/ltp?instrument_key=...` and maps `last_price` into a
+`QuoteSnapshot`.
