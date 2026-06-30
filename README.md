@@ -73,3 +73,6 @@ prices: SMA, EMA, RSI, and MACD.
 
 Strategies share a common evaluation interface with instrument, candles, quote,
 and portfolio context, returning validated strategy signals plus diagnostics.
+
+Initial buy strategies include manual buy-price triggers and RSI oversold
+signals with configured quantity, target, and stop-loss mapping.

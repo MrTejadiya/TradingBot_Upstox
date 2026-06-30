@@ -109,3 +109,11 @@ add_executable(tradingbot_strategy_tests
 target_link_libraries(tradingbot_strategy_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_strategy_tests COMMAND tradingbot_strategy_tests)
+
+add_executable(tradingbot_buy_strategies_tests
+    strategy/buy_strategies_tests.cpp
+)
+
+target_link_libraries(tradingbot_buy_strategies_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_buy_strategies_tests COMMAND tradingbot_buy_strategies_tests)
