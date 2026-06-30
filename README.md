@@ -61,3 +61,6 @@ Historical candles are fetched through the V3 historical candle endpoint and
 stored through a cache interface. The current implementation includes an
 in-memory cache for tests; the SQLite-backed cache belongs with the persistence
 storage work.
+
+The market feed layer currently provides a websocket-ready abstraction for LTP
+subscription payloads, quote message parsing, and disconnect notifications.
