@@ -37,3 +37,11 @@ add_executable(tradingbot_credentials_tests
 target_link_libraries(tradingbot_credentials_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_credentials_tests COMMAND tradingbot_credentials_tests)
+
+add_executable(tradingbot_instrument_csv_tests
+    infra/instrument_csv_tests.cpp
+)
+
+target_link_libraries(tradingbot_instrument_csv_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_instrument_csv_tests COMMAND tradingbot_instrument_csv_tests)

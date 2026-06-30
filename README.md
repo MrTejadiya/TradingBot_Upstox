@@ -34,3 +34,9 @@ environment variable, not in the config file.
 The credential loader fails closed when the configured token environment variable
 is missing. Logs and metadata should pass secrets through the redaction helpers
 before output.
+
+## Instrument CSV
+
+The CSV loader reads `instrument_key` as the canonical identifier. `symbol` is
+display metadata only. Minimum supported columns are `instrument_key`, `symbol`,
+`enabled`, `quantity`, `max_position_qty`, and `target_profit_pct`.
