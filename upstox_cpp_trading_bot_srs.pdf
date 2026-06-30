@@ -1,0 +1,537 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Length 3251 >>
+stream
+BT
+54 770 Td
+/F2 22 Tf
+1 0 0 1 54 770 Tm (Software Requirements Specification) Tj
+/F2 17 Tf
+1 0 0 1 54 744 Tm (C++ Upstox Delivery Trading Bot) Tj
+/F1 10 Tf
+1 0 0 1 54 723 Tm (Version 1.0 | Prepared on 30 June 2026) Tj
+1 0 0 1 54 709 Tm (This document is a planning and software architecture artifact. It is not financial advice) Tj
+1 0 0 1 54 695 Tm (and does not guarantee trading profits. Live trading must be enabled only after dry-run) Tj
+1 0 0 1 54 681 Tm (validation, broker compliance checks, and user approval.) Tj
+/F2 15 Tf
+1 0 0 1 54 667 Tm (1. Introduction) Tj
+/F2 12 Tf
+1 0 0 1 54 648 Tm (1.1 Purpose) Tj
+/F1 10 Tf
+1 0 0 1 54 632 Tm (This Software Requirements Specification defines the functional, non-functional,) Tj
+1 0 0 1 54 618 Tm (architectural, safety, and compliance requirements for a C++ automated delivery trading bot) Tj
+1 0 0 1 54 604 Tm (using the latest Upstox APIs. The system will read company instrument keys from a CSV file,) Tj
+1 0 0 1 54 590 Tm (analyze market data using configurable strategies, and automate delivery buy and sell orders) Tj
+1 0 0 1 54 576 Tm (after risk validation.) Tj
+1 0 0 1 54 562 Tm (The first implementation shall prioritize dry-run behavior, auditability, safety gates,) Tj
+1 0 0 1 54 548 Tm (modular strategy design, and correctness before enabling live order placement.) Tj
+/F2 12 Tf
+1 0 0 1 54 534 Tm (1.2 Intended Users) Tj
+/F1 10 Tf
+1 0 0 1 54 518 Tm (- Individual trader or developer operating the bot from an approved Upstox API) Tj
+1 0 0 1 54 504 Tm (  environment.) Tj
+1 0 0 1 54 490 Tm (- Software developer extending strategy modules in C++.) Tj
+1 0 0 1 54 476 Tm (- System operator reviewing logs, dry-run decisions, and order audit records.) Tj
+/F2 12 Tf
+1 0 0 1 54 462 Tm (1.3 Scope) Tj
+/F1 10 Tf
+1 0 0 1 54 446 Tm (The system is limited to Indian equity delivery trading through Upstox. It will not support) Tj
+1 0 0 1 54 432 Tm (intraday, margin trading, futures and options, commodities, mutual funds, high-frequency) Tj
+1 0 0 1 54 418 Tm (trading, or multi-broker routing in version 1.) Tj
+/F2 12 Tf
+1 0 0 1 54 404 Tm (1.4 Definitions) Tj
+/F2 9 Tf
+1 0 0 1 54 388 Tm (Term: Meaning) Tj
+/F1 9 Tf
+1 0 0 1 54 375 Tm (Delivery: Equity order intended to settle into holdings. Upstox product code D.) Tj
+1 0 0 1 54 362 Tm (Instrument Key: Canonical Upstox identifier such as NSE_EQ|INE002A01018.) Tj
+1 0 0 1 54 349 Tm (LTP: Latest traded price.) Tj
+1 0 0 1 54 336 Tm (OHLCV: Open, high, low, close, volume candle data.) Tj
+1 0 0 1 54 323 Tm (Dry Run: Mode that executes all logic except live order placement.) Tj
+1 0 0 1 54 310 Tm (Strategy: Module that evaluates market data and emits buy or sell signals.) Tj
+/F2 15 Tf
+1 0 0 1 54 297 Tm (2. Business Objectives) Tj
+/F1 10 Tf
+1 0 0 1 54 278 Tm (- Automate disciplined delivery buy and sell decisions based on defined strategies.) Tj
+1 0 0 1 54 264 Tm (- Avoid missed profit exits by prioritizing sell orders when target or risk exits trigger.) Tj
+1 0 0 1 54 250 Tm (- Make strategy development modular so RSI divergence, trendlines, breakouts, and future) Tj
+1 0 0 1 54 236 Tm (  methods can be added cleanly.) Tj
+1 0 0 1 54 222 Tm (- Protect capital through strict risk checks, dry-run defaults, and complete audit logs.) Tj
+ET
+endstream
+endobj
+4 0 obj
+<< /Type /Page /Parent 19 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 3 0 R >>
+endobj
+5 0 obj
+<< /Length 3745 >>
+stream
+BT
+54 770 Td
+/F1 10 Tf
+1 0 0 1 54 770 Tm (- Stay within Upstox API limits and Indian regulatory constraints.) Tj
+/F2 15 Tf
+1 0 0 1 54 756 Tm (3. Regulatory And Broker Constraints) Tj
+/F1 10 Tf
+1 0 0 1 54 737 Tm (The bot shall comply with Upstox and applicable Indian market requirements. As of 30 June) Tj
+1 0 0 1 54 723 Tm (2026, Upstox documentation states separate API limits for order APIs and standard APIs.) Tj
+1 0 0 1 54 709 Tm (Order APIs include place, modify, cancel, multi-order, and GTT operations. Regular algos) Tj
+1 0 0 1 54 695 Tm (have lower order API throughput than SEBI-registered algos. Upstox also communicates) Tj
+1 0 0 1 54 681 Tm (regulatory requirements such as static IP usage for order placement and algo registration) Tj
+1 0 0 1 54 667 Tm (thresholds.) Tj
+1 0 0 1 54 653 Tm (- The bot shall run from a configured static IP when live order placement is enabled.) Tj
+1 0 0 1 54 639 Tm (- The bot shall keep live order throughput below the configured Upstox order API limits.) Tj
+1 0 0 1 54 625 Tm (- The bot shall support an optional X-Algo-Name header only when the user has configured) Tj
+1 0 0 1 54 611 Tm (  an approved algo name.) Tj
+1 0 0 1 54 597 Tm (- The bot shall never bypass OAuth, 2FA, static IP, exchange rules, broker restrictions,) Tj
+1 0 0 1 54 583 Tm (  or SEBI requirements.) Tj
+1 0 0 1 54 569 Tm (- The bot shall default to dry-run mode and require explicit live-trading confirmation.) Tj
+/F2 15 Tf
+1 0 0 1 54 555 Tm (4. System Overview) Tj
+/F1 10 Tf
+1 0 0 1 54 536 Tm (The application shall be a C++20 or C++23 command-line/service application using CMake. It) Tj
+1 0 0 1 54 522 Tm (shall be portable across Windows and Linux where practical, with Windows as the first target) Tj
+1 0 0 1 54 508 Tm (environment.) Tj
+/F2 12 Tf
+1 0 0 1 54 494 Tm (4.1 Major Components) Tj
+/F1 10 Tf
+1 0 0 1 54 478 Tm (- Configuration Loader: loads YAML or JSON configuration.) Tj
+1 0 0 1 54 464 Tm (- CSV Instrument Loader: reads and validates instrument keys and per-stock settings.) Tj
+1 0 0 1 54 450 Tm (- Upstox API Client: handles authenticated REST and WebSocket communication.) Tj
+1 0 0 1 54 436 Tm (- Market Data Service: fetches and streams LTP, OHLCV candles, and volume data.) Tj
+1 0 0 1 54 422 Tm (- Indicator Library: calculates RSI, moving averages, pivots, divergence, trendlines, and) Tj
+1 0 0 1 54 408 Tm (  support/resistance zones.) Tj
+1 0 0 1 54 394 Tm (- Strategy Engine: runs configured strategy modules and aggregates signals.) Tj
+1 0 0 1 54 380 Tm (- Exit Engine: monitors holdings and triggers target, manual, trailing, stop-loss, or) Tj
+1 0 0 1 54 366 Tm (  strategy exits.) Tj
+1 0 0 1 54 352 Tm (- Risk Manager: validates every buy and sell decision before an order is queued.) Tj
+1 0 0 1 54 338 Tm (- Order Dispatcher: single controlled component allowed to place, modify, or cancel) Tj
+1 0 0 1 54 324 Tm (  orders.) Tj
+1 0 0 1 54 310 Tm (- Persistence Store: SQLite database for audit, market snapshots, decisions, and orders.) Tj
+1 0 0 1 54 296 Tm (- Logging System: rotating logs with secret redaction.) Tj
+/F2 15 Tf
+1 0 0 1 54 282 Tm (5. Operating Modes) Tj
+/F2 9 Tf
+1 0 0 1 54 263 Tm (Mode: Description) Tj
+/F1 9 Tf
+1 0 0 1 54 250 Tm (validate: Validates config, CSV, strategy profiles, and risk settings without market) Tj
+1 0 0 1 54 237 Tm (calls.) Tj
+1 0 0 1 54 224 Tm (dry-run: Runs market data, strategies, risk checks, and simulated orders without live) Tj
+1 0 0 1 54 211 Tm (placement.) Tj
+1 0 0 1 54 198 Tm (paper: Optional future mode that simulates fills and portfolio state.) Tj
+1 0 0 1 54 185 Tm (live: Places real delivery orders after explicit configuration and risk approval.) Tj
+1 0 0 1 54 172 Tm (show-orders: Displays stored orders and decisions from SQLite.) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 19 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 3325 >>
+stream
+BT
+54 770 Td
+/F1 10 Tf
+1 0 0 1 54 770 Tm (Dry-run shall be the default mode. Live mode shall require mode=live and) Tj
+1 0 0 1 54 756 Tm (live_trading_enabled=true in configuration.) Tj
+/F2 15 Tf
+1 0 0 1 54 742 Tm (6. Input Requirements) Tj
+/F2 12 Tf
+1 0 0 1 54 723 Tm (6.1 Instrument CSV) Tj
+/F1 10 Tf
+1 0 0 1 54 707 Tm (The bot shall read target companies from a CSV file. The instrument_key column is mandatory) Tj
+1 0 0 1 54 693 Tm (and shall be treated as the canonical identifier. Symbol names are only display metadata.) Tj
+1 0 0 1 54 679 Tm (Minimum CSV columns: instrument_key, symbol, enabled, quantity, max_position_qty,) Tj
+1 0 0 1 54 665 Tm (target_profit_pct.) Tj
+1 0 0 1 54 651 Tm (Recommended CSV columns: instrument_key, symbol, exchange, enabled, quantity,) Tj
+1 0 0 1 54 637 Tm (max_position_qty, manual_buy_price, manual_target_price, stop_loss_pct, target_profit_pct,) Tj
+1 0 0 1 54 623 Tm (trailing_stop_pct, strategy_profile, notes.) Tj
+/F2 12 Tf
+1 0 0 1 54 609 Tm (6.2 CSV Validation Rules) Tj
+/F1 10 Tf
+1 0 0 1 54 593 Tm (- instrument_key is mandatory and duplicates shall be rejected.) Tj
+1 0 0 1 54 579 Tm (- enabled must be parseable as true or false.) Tj
+1 0 0 1 54 565 Tm (- quantity and max_position_qty must be positive integers.) Tj
+1 0 0 1 54 551 Tm (- target_profit_pct and stop_loss_pct must be non-negative decimal values when present.) Tj
+1 0 0 1 54 537 Tm (- manual prices must be positive decimal values when present.) Tj
+1 0 0 1 54 523 Tm (- strategy_profile must exist in the configuration when present.) Tj
+1 0 0 1 54 509 Tm (- Invalid rows shall fail startup unless skip_invalid_rows is explicitly enabled.) Tj
+/F2 15 Tf
+1 0 0 1 54 495 Tm (7. Market Data Requirements) Tj
+/F1 10 Tf
+1 0 0 1 54 476 Tm (LTP alone is insufficient for RSI divergence and trendline strategies. The system shall) Tj
+1 0 0 1 54 462 Tm (support both streaming quotes and historical candle data.) Tj
+1 0 0 1 54 448 Tm (- Fetch latest LTP using Upstox V3 market quote APIs or streaming feeds.) Tj
+1 0 0 1 54 434 Tm (- Fetch OHLCV candles for configurable intervals such as 1 day, 1 hour, and 15 minutes.) Tj
+1 0 0 1 54 420 Tm (- Cache candle data in SQLite to reduce redundant API calls.) Tj
+1 0 0 1 54 406 Tm (- Reject stale, missing, or malformed market data.) Tj
+1 0 0 1 54 392 Tm (- Prefer WebSocket market feeds for live monitoring to reduce REST polling.) Tj
+1 0 0 1 54 378 Tm (- Persist quote/candle snapshots used in every buy or sell decision.) Tj
+/F2 15 Tf
+1 0 0 1 54 364 Tm (8. Strategy Requirements) Tj
+/F2 12 Tf
+1 0 0 1 54 345 Tm (8.1 Strategy Framework) Tj
+/F1 10 Tf
+1 0 0 1 54 329 Tm (The bot shall support modular strategy classes implementing a shared strategy interface.) Tj
+1 0 0 1 54 315 Tm (Strategies shall not place orders directly. Strategies shall emit signals that pass through) Tj
+1 0 0 1 54 301 Tm (aggregation, risk validation, and order dispatch.) Tj
+1 0 0 1 54 287 Tm (Each signal shall include instrument_key, action, confidence, suggested quantity, suggested) Tj
+1 0 0 1 54 273 Tm (entry price, suggested target price, suggested stop loss, reason, strategy name, and) Tj
+1 0 0 1 54 259 Tm (timestamp.) Tj
+/F2 12 Tf
+1 0 0 1 54 245 Tm (8.2 Buy Strategies) Tj
+/F1 10 Tf
+1 0 0 1 54 229 Tm (- RSI oversold strategy.) Tj
+1 0 0 1 54 215 Tm (- RSI bullish divergence strategy.) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 19 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 3103 >>
+stream
+BT
+54 770 Td
+/F1 10 Tf
+1 0 0 1 54 770 Tm (- Moving average crossover strategy.) Tj
+1 0 0 1 54 756 Tm (- Trendline support bounce strategy.) Tj
+1 0 0 1 54 742 Tm (- Breakout above resistance strategy.) Tj
+1 0 0 1 54 728 Tm (- Volume breakout confirmation strategy.) Tj
+1 0 0 1 54 714 Tm (- Manual buy price trigger from CSV.) Tj
+/F2 12 Tf
+1 0 0 1 54 700 Tm (8.3 Sell Strategies And Exit Rules) Tj
+/F1 10 Tf
+1 0 0 1 54 684 Tm (- Fixed profit target exit, default 10 percent unless overridden.) Tj
+1 0 0 1 54 670 Tm (- Manual target price from CSV or config.) Tj
+1 0 0 1 54 656 Tm (- Strategy-calculated target price.) Tj
+1 0 0 1 54 642 Tm (- Stop loss.) Tj
+1 0 0 1 54 628 Tm (- Trailing stop loss.) Tj
+1 0 0 1 54 614 Tm (- RSI bearish divergence.) Tj
+1 0 0 1 54 600 Tm (- Trendline support break.) Tj
+1 0 0 1 54 586 Tm (- Moving average breakdown.) Tj
+1 0 0 1 54 572 Tm (- Maximum holding period.) Tj
+/F2 12 Tf
+1 0 0 1 54 558 Tm (8.4 Signal Aggregation) Tj
+/F1 10 Tf
+1 0 0 1 54 542 Tm (When multiple strategies are enabled, the Strategy Engine shall support any, all, and) Tj
+1 0 0 1 54 528 Tm (weighted_score modes. Weighted mode shall compare aggregated confidence against configurable) Tj
+1 0 0 1 54 514 Tm (thresholds. Sell signals shall support first_exit_wins so urgent exits are not delayed by) Tj
+1 0 0 1 54 500 Tm (unrelated strategies.) Tj
+/F2 15 Tf
+1 0 0 1 54 486 Tm (9. Exit Priority Requirements) Tj
+/F1 10 Tf
+1 0 0 1 54 467 Tm (Once a stock is bought, the Exit Engine shall monitor the holding using average buy price,) Tj
+1 0 0 1 54 453 Tm (current LTP, manual targets, strategy targets, stop-loss settings, and trailing stop) Tj
+1 0 0 1 54 439 Tm (settings.) Tj
+1 0 0 1 54 425 Tm (Exit priority shall be: emergency risk exit, stop loss, manual target, fixed profit target,) Tj
+1 0 0 1 54 411 Tm (strategy target, strategy sell signal, trailing stop, maximum holding duration.) Tj
+1 0 0 1 54 397 Tm (If a stock reaches the default 10 percent profit target, the system shall create a high-) Tj
+1 0 0 1 54 383 Tm (priority sell decision unless a higher-priority manual or strategy target overrides the) Tj
+1 0 0 1 54 369 Tm (target.) Tj
+/F2 15 Tf
+1 0 0 1 54 355 Tm (10. Risk Management Requirements) Tj
+/F1 10 Tf
+1 0 0 1 54 336 Tm (- Validate trading mode before order placement.) Tj
+1 0 0 1 54 322 Tm (- Validate stock is enabled and strategy profile is active.) Tj
+1 0 0 1 54 308 Tm (- Validate market session and order window.) Tj
+1 0 0 1 54 294 Tm (- Validate quantity, max position, and daily order count limits.) Tj
+1 0 0 1 54 280 Tm (- Validate max order value and max daily traded value.) Tj
+1 0 0 1 54 266 Tm (- Validate funds before buy orders.) Tj
+1 0 0 1 54 252 Tm (- Validate holdings before sell orders.) Tj
+1 0 0 1 54 238 Tm (- Prevent duplicate open orders for the same instrument and side unless explicitly) Tj
+1 0 0 1 54 224 Tm (  allowed.) Tj
+1 0 0 1 54 210 Tm (- Provide a kill switch that blocks new live orders immediately.) Tj
+1 0 0 1 54 196 Tm (- Record every risk rejection with a reason code.) Tj
+/F2 15 Tf
+1 0 0 1 54 182 Tm (11. Order Management Requirements) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 19 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Length 3581 >>
+stream
+BT
+54 770 Td
+/F1 10 Tf
+1 0 0 1 54 770 Tm (The bot shall place delivery orders only. Product shall be D, validity shall be DAY, and) Tj
+1 0 0 1 54 756 Tm (order type shall default to LIMIT. Market orders shall be disabled by default and available) Tj
+1 0 0 1 54 742 Tm (only behind an explicit configuration flag.) Tj
+1 0 0 1 54 728 Tm (Every order shall include instrument_key, transaction type, quantity, price, product,) Tj
+1 0 0 1 54 714 Tm (validity, order type, tag, source strategy, and run identifier.) Tj
+1 0 0 1 54 700 Tm (The Order Manager shall track order ID, status, rejection reason, fill information when) Tj
+1 0 0 1 54 686 Tm (available, and raw API response metadata. It shall poll or subscribe to order updates until) Tj
+1 0 0 1 54 672 Tm (a terminal state or timeout.) Tj
+/F2 15 Tf
+1 0 0 1 54 658 Tm (12. Multithreading And Concurrency Requirements) Tj
+/F1 10 Tf
+1 0 0 1 54 639 Tm (The C++ implementation shall use multithreading for responsiveness and computation, but all) Tj
+1 0 0 1 54 625 Tm (Upstox API calls shall pass through centralized rate-limited executors. Strategy threads) Tj
+1 0 0 1 54 611 Tm (shall never call order APIs directly.) Tj
+/F2 12 Tf
+1 0 0 1 54 597 Tm (12.1 Required Threads Or Worker Groups) Tj
+/F1 10 Tf
+1 0 0 1 54 581 Tm (- Market Data Thread: receives WebSocket quote updates and refreshes REST data when) Tj
+1 0 0 1 54 567 Tm (  needed.) Tj
+1 0 0 1 54 553 Tm (- Strategy Worker Pool: calculates RSI, divergence, trendlines, moving averages, and other) Tj
+1 0 0 1 54 539 Tm (  indicators.) Tj
+1 0 0 1 54 525 Tm (- Exit Monitor Thread: continuously evaluates holdings for target, stop loss, trailing) Tj
+1 0 0 1 54 511 Tm (  stop, and strategy exits.) Tj
+1 0 0 1 54 497 Tm (- Order Dispatcher Thread: only component allowed to call order placement, modification,) Tj
+1 0 0 1 54 483 Tm (  or cancellation APIs.) Tj
+1 0 0 1 54 469 Tm (- Portfolio Sync Thread: refreshes funds, holdings, positions, and order state.) Tj
+1 0 0 1 54 455 Tm (- Persistence Worker: writes logs, decisions, quotes, and order events to SQLite without) Tj
+1 0 0 1 54 441 Tm (  blocking trading logic.) Tj
+/F2 12 Tf
+1 0 0 1 54 427 Tm (12.2 Shared State Rules) Tj
+/F1 10 Tf
+1 0 0 1 54 411 Tm (- Use thread-safe queues for signals, risk events, order requests, and persistence events.) Tj
+1 0 0 1 54 397 Tm (- Use immutable snapshots for market data passed into strategies.) Tj
+1 0 0 1 54 383 Tm (- Use mutexes or read-write locks for shared portfolio state.) Tj
+1 0 0 1 54 369 Tm (- Use atomic flags for shutdown and kill switch state.) Tj
+1 0 0 1 54 355 Tm (- Avoid long-running locks around network calls.) Tj
+/F2 15 Tf
+1 0 0 1 54 341 Tm (13. API Rate Limit Requirements) Tj
+/F1 10 Tf
+1 0 0 1 54 322 Tm (The system shall implement token-bucket or leaky-bucket rate limiters for each API category.) Tj
+1 0 0 1 54 308 Tm (The configured internal limits shall be lower than broker-published limits to provide safety) Tj
+1 0 0 1 54 294 Tm (margin.) Tj
+/F2 9 Tf
+1 0 0 1 54 280 Tm (API Category: Use) Tj
+/F1 9 Tf
+1 0 0 1 54 267 Tm (Order API: Place, modify, cancel, multi-order, and GTT operations.) Tj
+1 0 0 1 54 254 Tm (Standard API: Holdings, positions, funds, historical data, and other non-order APIs.) Tj
+1 0 0 1 54 241 Tm (Streaming: Market data and portfolio feeds where available.) Tj
+/F1 10 Tf
+1 0 0 1 54 228 Tm (Sell orders shall get priority in the order queue, but they shall still respect Upstox) Tj
+1 0 0 1 54 214 Tm (limits. The bot shall reserve order capacity for exits so buy orders cannot starve urgent) Tj
+1 0 0 1 54 200 Tm (sell orders.) Tj
+ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 19 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 11 0 R >>
+endobj
+13 0 obj
+<< /Length 3173 >>
+stream
+BT
+54 770 Td
+/F1 10 Tf
+1 0 0 1 54 770 Tm (Recommended internal default for regular algo accounts: configure) Tj
+1 0 0 1 54 756 Tm (order_api.safe_requests_per_second below the published regular algo per-second limit and) Tj
+1 0 0 1 54 742 Tm (reserve a majority of that capacity for sell orders.) Tj
+/F2 15 Tf
+1 0 0 1 54 728 Tm (14. Priority Queue Requirements) Tj
+/F1 10 Tf
+1 0 0 1 54 709 Tm (The Order Dispatcher shall process order requests by priority and timestamp. Required) Tj
+1 0 0 1 54 695 Tm (priority order is: emergency sell or stop loss, target profit sell, manual target sell,) Tj
+1 0 0 1 54 681 Tm (strategy sell, buy order, non-urgent modify or cancel.) Tj
+1 0 0 1 54 667 Tm (If multiple sells trigger simultaneously, the dispatcher shall process stop-loss and) Tj
+1 0 0 1 54 653 Tm (emergency exits first, then profit exits ordered by urgency and age.) Tj
+/F2 15 Tf
+1 0 0 1 54 639 Tm (15. Persistence And Audit Requirements) Tj
+/F1 10 Tf
+1 0 0 1 54 620 Tm (SQLite shall be used for local persistence in version 1. Sensitive tokens shall not be) Tj
+1 0 0 1 54 606 Tm (stored in plaintext.) Tj
+1 0 0 1 54 592 Tm (- bot_runs: run ID, start time, end time, mode, config hash.) Tj
+1 0 0 1 54 578 Tm (- instruments: CSV-loaded instruments and validation status.) Tj
+1 0 0 1 54 564 Tm (- candles: OHLCV data used by strategies.) Tj
+1 0 0 1 54 550 Tm (- quotes: LTP snapshots.) Tj
+1 0 0 1 54 536 Tm (- strategy_signals: raw strategy outputs.) Tj
+1 0 0 1 54 522 Tm (- decisions: aggregated buy/sell decisions.) Tj
+1 0 0 1 54 508 Tm (- risk_events: approvals and rejections.) Tj
+1 0 0 1 54 494 Tm (- orders: order requests, statuses, prices, quantities, and Upstox order IDs.) Tj
+1 0 0 1 54 480 Tm (- api_events: redacted request metadata, response codes, retries, and latency.) Tj
+/F2 15 Tf
+1 0 0 1 54 466 Tm (16. Logging Requirements) Tj
+/F1 10 Tf
+1 0 0 1 54 447 Tm (- Log startup configuration summary without secrets.) Tj
+1 0 0 1 54 433 Tm (- Log CSV validation summary.) Tj
+1 0 0 1 54 419 Tm (- Log market-data freshness warnings.) Tj
+1 0 0 1 54 405 Tm (- Log every strategy signal and aggregation result.) Tj
+1 0 0 1 54 391 Tm (- Log every risk rejection and approval.) Tj
+1 0 0 1 54 377 Tm (- Log every live and dry-run order decision.) Tj
+1 0 0 1 54 363 Tm (- Redact access tokens, API secrets, and authorization headers.) Tj
+1 0 0 1 54 349 Tm (- Support daily rotation and configurable log levels.) Tj
+/F2 15 Tf
+1 0 0 1 54 335 Tm (17. Configuration Requirements) Tj
+/F1 10 Tf
+1 0 0 1 54 316 Tm (Configuration shall be stored in YAML or JSON. Required sections are app, upstox, input,) Tj
+1 0 0 1 54 302 Tm (market_data, strategies, exit_rules, risk, rate_limits, storage, and logging.) Tj
+1 0 0 1 54 288 Tm (Example configuration keys include mode, live_trading_enabled, access_token_env,) Tj
+1 0 0 1 54 274 Tm (instruments_csv, candle_intervals, default_target_profit_pct, default_stop_loss_pct,) Tj
+1 0 0 1 54 260 Tm (buy_signal_mode, sell_signal_mode, min_buy_score, max_orders_per_day,) Tj
+1 0 0 1 54 246 Tm (max_daily_traded_value, order_api safe limits, sqlite_path, and log directory.) Tj
+/F2 15 Tf
+1 0 0 1 54 232 Tm (18. Security Requirements) Tj
+ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 19 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 13 0 R >>
+endobj
+15 0 obj
+<< /Length 3036 >>
+stream
+BT
+54 770 Td
+/F1 10 Tf
+1 0 0 1 54 770 Tm (- Access tokens shall be supplied through environment variables, secure prompt, or) Tj
+1 0 0 1 54 756 Tm (  approved secret storage.) Tj
+1 0 0 1 54 742 Tm (- Tokens and secrets shall never be logged.) Tj
+1 0 0 1 54 728 Tm (- Configuration files should not require plaintext API secrets.) Tj
+1 0 0 1 54 714 Tm (- The bot shall validate that live mode is intentionally enabled.) Tj
+1 0 0 1 54 700 Tm (- The bot shall fail closed when authentication, config, or risk checks fail.) Tj
+/F2 15 Tf
+1 0 0 1 54 686 Tm (19. Error Handling Requirements) Tj
+/F1 10 Tf
+1 0 0 1 54 667 Tm (- Retry transient HTTP failures with exponential backoff and jitter.) Tj
+1 0 0 1 54 653 Tm (- Do not retry non-retryable validation, authentication, or rejected-order errors blindly.) Tj
+1 0 0 1 54 639 Tm (- Circuit-break order placement after repeated failures.) Tj
+1 0 0 1 54 625 Tm (- Degrade to no-new-buy mode when market data becomes stale.) Tj
+1 0 0 1 54 611 Tm (- Continue monitoring exits when possible even if a non-critical subsystem fails.) Tj
+1 0 0 1 54 597 Tm (- Persist fatal error context before shutdown.) Tj
+/F2 15 Tf
+1 0 0 1 54 583 Tm (20. Testing Requirements) Tj
+/F1 10 Tf
+1 0 0 1 54 564 Tm (- Unit tests for CSV parsing and validation.) Tj
+1 0 0 1 54 550 Tm (- Unit tests for indicator calculations: RSI, moving averages, pivots, divergence,) Tj
+1 0 0 1 54 536 Tm (  trendlines.) Tj
+1 0 0 1 54 522 Tm (- Unit tests for each strategy module.) Tj
+1 0 0 1 54 508 Tm (- Unit tests for signal aggregation.) Tj
+1 0 0 1 54 494 Tm (- Unit tests for risk rules.) Tj
+1 0 0 1 54 480 Tm (- Unit tests for rate limiter behavior and priority queue ordering.) Tj
+1 0 0 1 54 466 Tm (- Mock API tests for Upstox order payloads and quote parsing.) Tj
+1 0 0 1 54 452 Tm (- Integration tests for dry-run trading loop.) Tj
+1 0 0 1 54 438 Tm (- Manual acceptance test before any live trading.) Tj
+/F2 15 Tf
+1 0 0 1 54 424 Tm (21. Recommended Technology Stack) Tj
+/F2 9 Tf
+1 0 0 1 54 405 Tm (Area: Recommendation) Tj
+/F1 9 Tf
+1 0 0 1 54 392 Tm (Language: C++20 or C++23) Tj
+1 0 0 1 54 379 Tm (Build: CMake) Tj
+1 0 0 1 54 366 Tm (HTTP: libcurl, cpr, or Boost.Beast) Tj
+1 0 0 1 54 353 Tm (WebSocket: Boost.Beast or websocketpp) Tj
+1 0 0 1 54 340 Tm (JSON: nlohmann/json) Tj
+1 0 0 1 54 327 Tm (YAML: yaml-cpp, if YAML config is selected) Tj
+1 0 0 1 54 314 Tm (SQLite: sqlite3) Tj
+1 0 0 1 54 301 Tm (Logging: spdlog) Tj
+1 0 0 1 54 288 Tm (Tests: Catch2 or GoogleTest) Tj
+/F2 15 Tf
+1 0 0 1 54 275 Tm (22. Proposed Source Layout) Tj
+/F1 10 Tf
+1 0 0 1 54 256 Tm (app: CLI entrypoint and command routing. core: domain models. infra: API, config, CSV,) Tj
+1 0 0 1 54 242 Tm (persistence, logging. indicators: reusable market calculations. strategies: strategy) Tj
+1 0 0 1 54 228 Tm (modules. risk: risk manager and kill switch. order: order dispatcher and tracker.) Tj
+1 0 0 1 54 214 Tm (concurrency: queues, executors, rate limiters. tests: unit and integration tests.) Tj
+/F2 15 Tf
+1 0 0 1 54 200 Tm (23. Delivery Phases) Tj
+ET
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 19 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 15 0 R >>
+endobj
+17 0 obj
+<< /Length 3196 >>
+stream
+BT
+54 770 Td
+/F1 10 Tf
+1 0 0 1 54 770 Tm (- Phase 1: C++ project scaffold, config loader, logging, CSV validation, domain models.) Tj
+1 0 0 1 54 756 Tm (- Phase 2: indicator library and strategy interface with simple strategies.) Tj
+1 0 0 1 54 742 Tm (- Phase 3: signal aggregation, exit engine, and risk manager.) Tj
+1 0 0 1 54 728 Tm (- Phase 4: multithreaded queues, rate limiters, and priority order dispatcher in dry-run) Tj
+1 0 0 1 54 714 Tm (  mode.) Tj
+1 0 0 1 54 700 Tm (- Phase 5: Upstox market data integration and SQLite audit storage.) Tj
+1 0 0 1 54 686 Tm (- Phase 6: order placement integration behind explicit live-mode gates.) Tj
+1 0 0 1 54 672 Tm (- Phase 7: advanced RSI divergence, trendline detection, backtesting, and performance) Tj
+1 0 0 1 54 658 Tm (  tuning.) Tj
+/F2 15 Tf
+1 0 0 1 54 644 Tm (24. Acceptance Criteria) Tj
+/F1 10 Tf
+1 0 0 1 54 625 Tm (- The bot validates a CSV watchlist and rejects invalid rows with clear errors.) Tj
+1 0 0 1 54 611 Tm (- The bot runs in dry-run mode and records strategy signals, decisions, and simulated) Tj
+1 0 0 1 54 597 Tm (  orders.) Tj
+1 0 0 1 54 583 Tm (- The bot calculates at least RSI, moving averages, and fixed target exits.) Tj
+1 0 0 1 54 569 Tm (- The bot prioritizes sell orders over buy orders in the dispatcher.) Tj
+1 0 0 1 54 555 Tm (- The bot enforces configured API rate limits in tests.) Tj
+1 0 0 1 54 541 Tm (- The bot refuses live trading unless live mode and explicit confirmation are both) Tj
+1 0 0 1 54 527 Tm (  configured.) Tj
+1 0 0 1 54 513 Tm (- The bot never logs access tokens or authorization headers.) Tj
+1 0 0 1 54 499 Tm (- The bot has unit tests for strategy, risk, rate limiter, and CSV behavior.) Tj
+/F2 15 Tf
+1 0 0 1 54 485 Tm (25. Open Decisions) Tj
+/F1 10 Tf
+1 0 0 1 54 466 Tm (- Choose YAML or JSON for configuration.) Tj
+1 0 0 1 54 452 Tm (- Choose exact first strategy set for version 1.) Tj
+1 0 0 1 54 438 Tm (- Decide whether version 1 runs continuously during market hours or runs scheduled scans.) Tj
+1 0 0 1 54 424 Tm (- Decide whether manual target price always overrides strategy target or only when) Tj
+1 0 0 1 54 410 Tm (  configured per stock.) Tj
+1 0 0 1 54 396 Tm (- Decide whether market orders are completely forbidden or allowed with an explicit high-) Tj
+1 0 0 1 54 382 Tm (  risk flag.) Tj
+/F2 15 Tf
+1 0 0 1 54 368 Tm (26. References) Tj
+/F1 10 Tf
+1 0 0 1 54 349 Tm (- Upstox Authentication: https://upstox.com/developer/api-documentation/authentication/) Tj
+1 0 0 1 54 335 Tm (- Upstox Instruments: https://upstox.com/developer/api-documentation/instruments/) Tj
+1 0 0 1 54 321 Tm (- Upstox Market Quote LTP V3: https://upstox.com/developer/api-documentation/ltp-v3/) Tj
+1 0 0 1 54 307 Tm (- Upstox Orders: https://upstox.com/developer/api-documentation/place-order/) Tj
+1 0 0 1 54 293 Tm (- Upstox Rate Limits: https://upstox.com/developer/api-documentation/rate-limiting/) Tj
+1 0 0 1 54 279 Tm (- Upstox WebSocket Docs: https://upstox.com/developer/api-documentation/websocket/) Tj
+1 0 0 1 54 265 Tm (- Upstox Regulatory Update: https://community.upstox.com/t/important-update-regulatory-) Tj
+1 0 0 1 54 251 Tm (  changes-for-api-and-algo-trading-are-now-live/14874) Tj
+ET
+endstream
+endobj
+18 0 obj
+<< /Type /Page /Parent 19 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 17 0 R >>
+endobj
+19 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R 18 0 R] /Count 8 >>
+endobj
+20 0 obj
+<< /Type /Catalog /Pages 19 0 R >>
+endobj
+xref
+0 21
+0000000000 65535 f 
+0000000015 00000 n 
+0000000085 00000 n 
+0000000160 00000 n 
+0000003463 00000 n 
+0000003600 00000 n 
+0000007397 00000 n 
+0000007534 00000 n 
+0000010911 00000 n 
+0000011048 00000 n 
+0000014203 00000 n 
+0000014341 00000 n 
+0000017975 00000 n 
+0000018114 00000 n 
+0000021340 00000 n 
+0000021479 00000 n 
+0000024568 00000 n 
+0000024707 00000 n 
+0000027956 00000 n 
+0000028095 00000 n 
+0000028200 00000 n 
+trailer
+<< /Size 21 /Root 20 0 R >>
+startxref
+28251
+%%EOF
