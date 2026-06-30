@@ -13,6 +13,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(TRADINGBOT_BUILD_TESTS "Build TradingBot Upstox tests" ON)
 
 add_library(tradingbot_core
+    src/core/domain.cpp
     src/app/cli.cpp
 )
 
@@ -33,4 +34,3 @@ if(TRADINGBOT_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
-
