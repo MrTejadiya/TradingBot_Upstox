@@ -79,9 +79,11 @@ void creates_daily_log_file_name() {
 void appends_log_line_to_file() {
     const auto path = std::string{"logger_test_tmp.log"};
     const auto ok = tradingbot::infra::append_log_line(path, "hello");
-    std::ifstream file(path);
     std::string line;
-    std::getline(file, line);
+    {
+        std::ifstream file(path);
+        std::getline(file, line);
+    }
     std::remove(path.c_str());
 
     require(ok, "append should succeed");
