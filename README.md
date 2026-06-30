@@ -82,3 +82,6 @@ volume surge extension points with diagnostics but no live trade signals yet.
 
 Sell strategies cover target-profit/manual-target exits and stop-loss exits,
 using current holdings for sell quantity and average buy price thresholds.
+
+Signal aggregation converts validated strategy signals into decisions using
+first-actionable, highest-confidence, or majority-vote modes.

@@ -29,6 +29,7 @@ add_library(tradingbot_core
     src/strategy/buy_strategies.cpp
     src/strategy/indicators.cpp
     src/strategy/sell_strategies.cpp
+    src/strategy/signal_aggregation.cpp
     src/strategy/strategy.cpp
 )
 
