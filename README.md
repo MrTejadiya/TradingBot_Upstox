@@ -67,3 +67,6 @@ subscription payloads, quote message parsing, and disconnect notifications.
 
 Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.
+
+The strategy module includes baseline technical indicators over candle close
+prices: SMA, EMA, RSI, and MACD.

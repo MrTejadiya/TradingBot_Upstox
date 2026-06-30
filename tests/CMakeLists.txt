@@ -93,3 +93,11 @@ add_executable(tradingbot_portfolio_sync_service_tests
 target_link_libraries(tradingbot_portfolio_sync_service_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_portfolio_sync_service_tests COMMAND tradingbot_portfolio_sync_service_tests)
+
+add_executable(tradingbot_indicators_tests
+    strategy/indicators_tests.cpp
+)
+
+target_link_libraries(tradingbot_indicators_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_indicators_tests COMMAND tradingbot_indicators_tests)

@@ -25,6 +25,7 @@ add_library(tradingbot_core
     src/infra/market_quote_service.cpp
     src/infra/portfolio_sync_service.cpp
     src/infra/upstox_api_client.cpp
+    src/strategy/indicators.cpp
 )
 
 target_include_directories(tradingbot_core
