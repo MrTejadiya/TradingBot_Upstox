@@ -135,12 +135,12 @@ CREATE TABLE IF NOT EXISTS decisions (
 CREATE TABLE IF NOT EXISTS api_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id TEXT NOT NULL,
-    category TEXT NOT NULL,
-    endpoint TEXT NOT NULL,
-    http_status INTEGER,
-    retry_count INTEGER NOT NULL,
-    latency_ms INTEGER NOT NULL,
-    redacted_metadata TEXT,
+    method TEXT NOT NULL,
+    url TEXT NOT NULL,
+    status_code INTEGER,
+    attempt_count INTEGER NOT NULL,
+    retried INTEGER NOT NULL,
+    redacted_request_metadata TEXT,
     created_at TEXT NOT NULL
 );
 
@@ -150,8 +150,8 @@ CREATE INDEX IF NOT EXISTS idx_candles_instrument_interval_time
     ON candles(instrument_key, interval, candle_at);
 CREATE INDEX IF NOT EXISTS idx_decisions_run_instrument_time
     ON decisions(run_id, instrument_key, created_at);
-CREATE INDEX IF NOT EXISTS idx_api_events_run_category_time
-    ON api_events(run_id, category, created_at);
+CREATE INDEX IF NOT EXISTS idx_api_events_run_method_status_time
+    ON api_events(run_id, method, status_code, created_at);
 )sql",
     },
 };

@@ -43,7 +43,14 @@ void expanded_schema_contains_audit_tables() {
     require(sql.find("CREATE TABLE IF NOT EXISTS candles") != std::string::npos, "candles table should exist");
     require(sql.find("CREATE TABLE IF NOT EXISTS decisions") != std::string::npos, "decisions table should exist");
     require(sql.find("CREATE TABLE IF NOT EXISTS api_events") != std::string::npos, "api events table should exist");
-    require(sql.find("redacted_metadata TEXT") != std::string::npos, "API event metadata should be redacted");
+    require(sql.find("method TEXT NOT NULL") != std::string::npos, "API event method should be stored");
+    require(sql.find("url TEXT NOT NULL") != std::string::npos, "API event URL should be stored");
+    require(sql.find("status_code INTEGER") != std::string::npos, "API event status should be stored");
+    require(sql.find("attempt_count INTEGER NOT NULL") != std::string::npos,
+            "API event attempt count should be stored");
+    require(sql.find("retried INTEGER NOT NULL") != std::string::npos, "API event retry flag should be stored");
+    require(sql.find("redacted_request_metadata TEXT") != std::string::npos,
+            "API event metadata should be redacted");
 }
 
 void pending_migrations_skip_applied_versions() {
@@ -79,7 +86,8 @@ void expanded_schema_contains_lookup_indexes() {
             "quote snapshot lookup index should exist");
     require(sql.find("idx_candles_instrument_interval_time") != std::string::npos, "candle lookup index should exist");
     require(sql.find("idx_decisions_run_instrument_time") != std::string::npos, "decision lookup index should exist");
-    require(sql.find("idx_api_events_run_category_time") != std::string::npos, "API event lookup index should exist");
+    require(sql.find("idx_api_events_run_method_status_time") != std::string::npos,
+            "API event lookup index should exist");
 }
 
 }  // namespace
