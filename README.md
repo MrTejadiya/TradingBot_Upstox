@@ -104,3 +104,6 @@ tie-breaking, peek/pop semantics, and cancellation support.
 
 Rate-limited API executors use a deterministic sliding window limiter with
 retry-after feedback and callback execution only when capacity is available.
+
+The dry-run order dispatcher records simulated accepted/rejected order records
+with deterministic dry-run IDs and no broker API calls.
