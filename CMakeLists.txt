@@ -59,6 +59,7 @@ add_library(tradingbot_core
     src/persistence/persistence_worker.cpp
     src/persistence/quote_snapshot_mapper.cpp
     src/persistence/risk_event_mapper.cpp
+    src/persistence/sqlite_candle_cache.cpp
     src/persistence/sqlite_database.cpp
     src/persistence/sqlite_migrations.cpp
     src/persistence/sqlite_order_history_reader.cpp

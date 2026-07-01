@@ -282,6 +282,16 @@ copy_sqlite_runtime(tradingbot_sqlite_database_tests)
 
 add_test(NAME tradingbot_sqlite_database_tests COMMAND tradingbot_sqlite_database_tests)
 
+add_executable(tradingbot_sqlite_candle_cache_tests
+    persistence/sqlite_candle_cache_tests.cpp
+)
+
+target_link_libraries(tradingbot_sqlite_candle_cache_tests PRIVATE tradingbot_core)
+
+copy_sqlite_runtime(tradingbot_sqlite_candle_cache_tests)
+
+add_test(NAME tradingbot_sqlite_candle_cache_tests COMMAND tradingbot_sqlite_candle_cache_tests)
+
 add_executable(tradingbot_sqlite_order_history_reader_tests
     persistence/sqlite_order_history_reader_tests.cpp
 )
