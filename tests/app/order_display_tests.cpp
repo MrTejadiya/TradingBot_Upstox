@@ -1,5 +1,6 @@
 #include "tradingbot/app/order_display.hpp"
 
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
@@ -21,9 +22,13 @@ tradingbot::core::OrderRecord order_record() {
             .side = tradingbot::core::OrderSide::Sell,
             .quantity = 3,
             .price = 101.5,
+            .run_id = "run-1",
         },
         .broker_order_id = "ORDER-1",
-        .status = tradingbot::core::OrderStatus::Filled,
+        .status = tradingbot::core::OrderStatus::Rejected,
+        .rejection_reason = "risk gate rejected",
+        .redacted_response_metadata = "hidden metadata",
+        .updated_at = tradingbot::core::TimePoint{std::chrono::seconds{1}},
     };
 }
 
@@ -40,11 +45,19 @@ void prints_order_table() {
 
     tradingbot::app::print_orders({order_record()}, out);
 
-    require(out.str().find("ORDER_ID") != std::string::npos, "table should include header");
-    require(out.str().find("ORDER-1") != std::string::npos, "table should include order id");
-    require(out.str().find("NSE_EQ|INE002A01018") != std::string::npos, "table should include instrument");
-    require(out.str().find("sell") != std::string::npos, "table should include side");
-    require(out.str().find("filled") != std::string::npos, "table should include status");
+    const auto text = out.str();
+    require(text.find("RUN_ID") != std::string::npos, "table should include run id header");
+    require(text.find("ORDER_ID") != std::string::npos, "table should include order id header");
+    require(text.find("REASON") != std::string::npos, "table should include rejection reason header");
+    require(text.find("UPDATED_AT") != std::string::npos, "table should include updated timestamp header");
+    require(text.find("run-1") != std::string::npos, "table should include run id");
+    require(text.find("ORDER-1") != std::string::npos, "table should include order id");
+    require(text.find("NSE_EQ|INE002A01018") != std::string::npos, "table should include instrument");
+    require(text.find("sell") != std::string::npos, "table should include side");
+    require(text.find("rejected") != std::string::npos, "table should include status");
+    require(text.find("risk gate rejected") != std::string::npos, "table should include rejection reason");
+    require(text.find("1970-01-01T00:00:01Z") != std::string::npos, "table should include UTC updated timestamp");
+    require(text.find("hidden metadata") == std::string::npos, "table should not include API metadata");
 }
 
 void names_all_terminal_statuses() {
@@ -64,4 +77,3 @@ int main() {
     names_all_terminal_statuses();
     return 0;
 }
-
