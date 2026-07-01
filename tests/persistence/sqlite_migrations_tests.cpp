@@ -34,6 +34,19 @@ void core_schema_contains_required_tables() {
     require(sql.find("broker_order_id TEXT PRIMARY KEY") != std::string::npos, "orders should key by broker id");
 }
 
+void strategy_schema_contains_signal_price_guidance() {
+    const auto& sql = tradingbot::persistence::sqlite_migrations()[1].sql;
+
+    require(sql.find("CREATE TABLE IF NOT EXISTS strategy_signals") != std::string::npos,
+            "strategy signals table should exist");
+    require(sql.find("suggested_entry_price REAL") != std::string::npos,
+            "strategy signal entry guidance should be audited");
+    require(sql.find("suggested_target_price REAL") != std::string::npos,
+            "strategy signal target guidance should be audited");
+    require(sql.find("suggested_stop_loss REAL") != std::string::npos,
+            "strategy signal stop-loss guidance should be audited");
+}
+
 void expanded_schema_contains_audit_tables() {
     const auto& sql = tradingbot::persistence::sqlite_migrations().back().sql;
 
@@ -103,6 +116,7 @@ void expanded_schema_contains_lookup_indexes() {
 int main() {
     migrations_are_ordered_and_named();
     core_schema_contains_required_tables();
+    strategy_schema_contains_signal_price_guidance();
     expanded_schema_contains_audit_tables();
     pending_migrations_skip_applied_versions();
     applies_pending_migrations_idempotently();

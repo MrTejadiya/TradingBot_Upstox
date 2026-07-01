@@ -56,6 +56,9 @@ CREATE TABLE IF NOT EXISTS strategy_signals (
     action TEXT NOT NULL,
     confidence REAL NOT NULL,
     suggested_quantity INTEGER NOT NULL,
+    suggested_entry_price REAL,
+    suggested_target_price REAL,
+    suggested_stop_loss REAL,
     strategy_name TEXT NOT NULL,
     reason TEXT NOT NULL,
     created_at TEXT NOT NULL
