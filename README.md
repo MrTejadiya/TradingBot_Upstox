@@ -83,8 +83,8 @@ and portfolio context, returning validated strategy signals plus diagnostics.
 Initial buy strategies include manual buy-price triggers and RSI oversold
 signals with configured quantity, target, and stop-loss mapping.
 
-Advanced buy strategy placeholders expose named EMA crossover, breakout, and
-volume surge extension points with diagnostics but no live trade signals yet.
+Advanced buy strategies cover EMA bullish crossover, resistance breakout, and
+volume surge confirmation signals.
 
 Sell strategies cover target-profit/manual-target exits and stop-loss exits,
 using current holdings for sell quantity and average buy price thresholds.

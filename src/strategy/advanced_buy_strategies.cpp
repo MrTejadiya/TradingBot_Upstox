@@ -12,15 +12,6 @@
 namespace tradingbot::strategy {
 namespace {
 
-StrategyEvaluation placeholder_evaluation(const StrategyContext& context, const std::string& strategy_name,
-                                          const std::string& detail) {
-    StrategyEvaluation evaluation;
-    std::ostringstream diagnostic;
-    diagnostic << strategy_name << " placeholder skipped " << context.instrument.symbol << ": " << detail;
-    evaluation.diagnostics.push_back(diagnostic.str());
-    return evaluation;
-}
-
 std::optional<core::Money> entry_price(const StrategyContext& context) {
     if (context.quote && context.quote->ltp > 0.0 && !context.quote->stale) {
         return context.quote->ltp;

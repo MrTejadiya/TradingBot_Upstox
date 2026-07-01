@@ -22,14 +22,14 @@ Implementation references:
 
 ## Decision 2: First Strategy Set
 
-Decision: version 1 enables manual buy-price triggers, RSI oversold buys,
-target-profit/manual-target sells, stop-loss sells, signal aggregation, and exit
-priority handling. EMA crossover, breakout, and volume-surge buy strategies are
-registered as placeholders and must not emit live trade signals until their full
-rules and tests are implemented.
+Decision: version 1 enables manual buy-price triggers, RSI oversold buys, EMA
+bullish crossover buys, resistance breakout buys, volume-surge confirmation
+buys, target-profit/manual-target sells, stop-loss sells, signal aggregation,
+and exit priority handling.
 
-Rationale: this gives the bot a small auditable trading surface while preserving
-named extension points for the advanced strategy roadmap.
+Rationale: this gives the bot an auditable delivery-trading strategy surface
+while keeping each signal rule deterministic and unit tested before it can feed
+aggregation, risk validation, and order dispatch.
 
 Implementation references:
 

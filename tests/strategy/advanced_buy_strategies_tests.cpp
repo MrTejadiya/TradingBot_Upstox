@@ -67,9 +67,9 @@ void strategies_have_stable_names() {
     require(tradingbot::strategy::EmaCrossoverBuyStrategy{}.name() == "ema_crossover_buy",
             "EMA crossover strategy should expose stable name");
     require(tradingbot::strategy::BreakoutBuyStrategy{}.name() == "breakout_buy",
-            "breakout placeholder should expose stable name");
+            "breakout strategy should expose stable name");
     require(tradingbot::strategy::VolumeSurgeBuyStrategy{}.name() == "volume_surge_buy",
-            "volume surge placeholder should expose stable name");
+            "volume surge strategy should expose stable name");
 }
 
 void ema_crossover_emits_buy_signal_on_bullish_cross() {
