@@ -22,11 +22,13 @@ std::string request_metadata(const HttpRequest& request) {
 }  // namespace
 
 UpstoxApiClient::UpstoxApiClient(std::string base_url, std::string access_token,
-                                 std::shared_ptr<HttpTransport> transport, RetryPolicy retry_policy)
+                                 std::shared_ptr<HttpTransport> transport, RetryPolicy retry_policy,
+                                 UpstoxApiClientOptions options)
     : base_url_(std::move(base_url)),
       access_token_(std::move(access_token)),
       transport_(std::move(transport)),
-      retry_policy_(retry_policy) {}
+      retry_policy_(retry_policy),
+      options_(options) {}
 
 ApiResult UpstoxApiClient::get(const std::string& path) {
     return request("GET", path, {});
@@ -48,6 +50,7 @@ ApiResult UpstoxApiClient::request(std::string method, const std::string& path, 
         .url = join_url(base_url_, path),
         .headers = {{"Accept", "application/json"}, {"Authorization", "Bearer " + access_token_}},
         .body = std::move(body),
+        .force_ipv4 = options_.force_ipv4,
     };
     if (!http_request.body.empty()) {
         http_request.headers.emplace("Content-Type", "application/json");
@@ -116,4 +119,3 @@ std::string join_url(const std::string& base_url, const std::string& path) {
 }
 
 }  // namespace tradingbot::infra
-

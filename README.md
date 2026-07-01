@@ -31,6 +31,11 @@ Version 1 uses JSON configuration. The loader validates these required sections:
 Start from `config.example.json` and provide access tokens through the configured
 environment variable, not in the config file.
 
+Set `upstox.force_ipv4=true` for live/order API traffic when the Upstox static
+IP allowlist is configured with IPv4 addresses. The RK9311-29 broker test showed
+that IPv6 egress can be rejected even when the configured IPv4 static IP is
+valid.
+
 The credential loader fails closed when the configured token environment variable
 is missing. Logs and metadata should pass secrets through the redaction helpers
 before output.

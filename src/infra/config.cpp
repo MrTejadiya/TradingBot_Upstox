@@ -423,6 +423,7 @@ ConfigLoadResult load_config_from_json(const std::string& json_text) {
 
     if (upstox != nullptr) {
         result.config.upstox.access_token_env = require_string(*upstox, "upstox", "access_token_env", result.errors);
+        result.config.upstox.force_ipv4 = bool_at(*upstox, "force_ipv4").value_or(false);
     }
     if (input != nullptr) {
         result.config.input.instruments_csv = require_string(*input, "input", "instruments_csv", result.errors);

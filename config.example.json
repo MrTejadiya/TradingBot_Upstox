@@ -4,7 +4,8 @@
     "live_trading_enabled": false
   },
   "upstox": {
-    "access_token_env": "UPSTOX_ACCESS_TOKEN"
+    "access_token_env": "UPSTOX_ACCESS_TOKEN",
+    "force_ipv4": true
   },
   "input": {
     "instruments_csv": "instruments.csv"

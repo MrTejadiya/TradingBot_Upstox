@@ -91,6 +91,18 @@ void post_sets_json_content_type() {
     require(transport->requests.front().headers.at("Content-Type") == "application/json", "content type should be JSON");
 }
 
+void propagates_force_ipv4_option_to_transport_request() {
+    auto transport = std::make_shared<FakeTransport>();
+    tradingbot::infra::UpstoxApiClient client(
+        "https://api-hft.upstox.com", "token", transport, {}, {.force_ipv4 = true});
+
+    const auto result = client.post("/v3/order/place", "{\"quantity\":1}");
+
+    require(result.ok, "POST should succeed");
+    require(transport->requests.size() == 1, "one request should be sent");
+    require(transport->requests.front().force_ipv4, "request should carry IPv4 egress requirement");
+}
+
 }  // namespace
 
 int main() {
@@ -99,6 +111,6 @@ int main() {
     retries_transient_status();
     does_not_retry_validation_or_auth_errors();
     post_sets_json_content_type();
+    propagates_force_ipv4_option_to_transport_request();
     return 0;
 }
-

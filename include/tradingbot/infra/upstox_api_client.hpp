@@ -11,6 +11,7 @@ struct HttpRequest {
     std::string url;
     std::map<std::string, std::string> headers;
     std::string body;
+    bool force_ipv4{false};
 };
 
 struct HttpResponse {
@@ -27,6 +28,10 @@ public:
 
 struct RetryPolicy {
     int max_attempts{3};
+};
+
+struct UpstoxApiClientOptions {
+    bool force_ipv4{false};
 };
 
 struct ApiEvent {
@@ -48,7 +53,7 @@ struct ApiResult {
 class UpstoxApiClient {
 public:
     UpstoxApiClient(std::string base_url, std::string access_token, std::shared_ptr<HttpTransport> transport,
-                    RetryPolicy retry_policy = {});
+                    RetryPolicy retry_policy = {}, UpstoxApiClientOptions options = {});
 
     ApiResult get(const std::string& path);
     ApiResult post(const std::string& path, const std::string& body);
@@ -60,6 +65,7 @@ private:
     std::string access_token_;
     std::shared_ptr<HttpTransport> transport_;
     RetryPolicy retry_policy_;
+    UpstoxApiClientOptions options_;
 };
 
 bool is_transient_http_status(int status_code);
@@ -67,4 +73,3 @@ bool is_retryable_http_status(int status_code);
 std::string join_url(const std::string& base_url, const std::string& path);
 
 }  // namespace tradingbot::infra
-

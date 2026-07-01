@@ -22,7 +22,8 @@ std::string valid_config_json() {
             "live_trading_enabled": false
         },
         "upstox": {
-            "access_token_env": "UPSTOX_ACCESS_TOKEN"
+            "access_token_env": "UPSTOX_ACCESS_TOKEN",
+            "force_ipv4": true
         },
         "input": {
             "instruments_csv": "instruments.csv"
@@ -64,6 +65,7 @@ void loads_valid_json_config() {
     require(result.config.app.mode == tradingbot::app::Mode::DryRun, "mode should parse");
     require(!result.config.app.live_trading_enabled, "live flag should parse");
     require(result.config.upstox.access_token_env == "UPSTOX_ACCESS_TOKEN", "token env should parse");
+    require(result.config.upstox.force_ipv4, "force IPv4 flag should parse");
     require(result.config.input.instruments_csv == "instruments.csv", "CSV path should parse");
     require(result.config.market_data.candle_intervals.size() == 3, "candle intervals should parse");
     require(result.config.strategies.buy_signal_mode == "weighted_score", "buy signal mode should parse");

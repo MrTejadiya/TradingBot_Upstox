@@ -14,6 +14,7 @@ struct AppConfig {
 
 struct UpstoxConfig {
     std::string access_token_env;
+    bool force_ipv4{false};
 };
 
 struct InputConfig {
@@ -75,4 +76,3 @@ ConfigLoadResult load_config_file(const std::string& path);
 ConfigLoadResult load_config_from_json(const std::string& json_text);
 
 }  // namespace tradingbot::infra
-
