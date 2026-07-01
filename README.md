@@ -89,3 +89,6 @@ first-actionable, highest-confidence, or majority-vote modes.
 The exit engine evaluates sell exits in deterministic priority order:
 emergency risk, stop loss, manual target, fixed profit target, then strategy
 sell signals.
+
+The risk manager validates decisions against instrument status, quantity caps,
+duplicate open orders, buy funds, and sell holdings before orders are created.
