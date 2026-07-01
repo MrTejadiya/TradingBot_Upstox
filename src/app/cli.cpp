@@ -4,7 +4,9 @@
 #include "tradingbot/app/order_display.hpp"
 
 #include <cstddef>
+#include <charconv>
 #include <ostream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -34,6 +36,31 @@ bool parse_mode_value(const std::string& value, Mode& mode) {
         return true;
     }
     return false;
+}
+
+std::optional<std::size_t> parse_positive_size(const std::string& value) {
+    if (value.empty()) {
+        return std::nullopt;
+    }
+    std::size_t parsed{};
+    const auto* begin = value.data();
+    const auto* end = value.data() + value.size();
+    const auto result = std::from_chars(begin, end, parsed);
+    if (result.ec != std::errc{} || result.ptr != end || parsed == 0) {
+        return std::nullopt;
+    }
+    return parsed;
+}
+
+bool parse_limit_value(const std::string& value, CliResult& result) {
+    const auto parsed = parse_positive_size(value);
+    if (!parsed) {
+        result.ok = false;
+        result.error = "--limit requires a positive integer";
+        return false;
+    }
+    result.options.order_limit = *parsed;
+    return true;
 }
 
 }  // namespace
@@ -104,6 +131,18 @@ CliResult parse_cli(std::vector<std::string> args) {
             continue;
         }
 
+        if (arg == "--limit") {
+            if (index + 1 >= args.size()) {
+                result.ok = false;
+                result.error = "--limit requires a value";
+                return result;
+            }
+            if (!parse_limit_value(args[++index], result)) {
+                return result;
+            }
+            continue;
+        }
+
         constexpr std::string_view mode_prefix{"--mode="};
         if (arg.rfind(mode_prefix, 0) == 0) {
             const auto value = arg.substr(mode_prefix.size());
@@ -121,6 +160,14 @@ CliResult parse_cli(std::vector<std::string> args) {
         constexpr std::string_view config_prefix{"--config="};
         if (arg.rfind(config_prefix, 0) == 0) {
             result.options.config_path = arg.substr(config_prefix.size());
+            continue;
+        }
+
+        constexpr std::string_view limit_prefix{"--limit="};
+        if (arg.rfind(limit_prefix, 0) == 0) {
+            if (!parse_limit_value(arg.substr(limit_prefix.size()), result)) {
+                return result;
+            }
             continue;
         }
 
@@ -164,10 +211,13 @@ int run_cli(const CliOptions& options, std::ostream& out, std::ostream& err, Ord
             return 0;
         case Mode::ShowOrders:
             if (order_history_reader) {
-                const auto history = order_history_reader->load_orders();
+                auto history = order_history_reader->load_orders();
                 if (!history.ok) {
                     err << (history.error.empty() ? "failed to load orders" : history.error) << "\n";
                     return 2;
+                }
+                if (options.order_limit && history.orders.size() > *options.order_limit) {
+                    history.orders.resize(*options.order_limit);
                 }
                 print_orders(history.orders, out);
                 return 0;
@@ -183,8 +233,10 @@ int run_cli(const CliOptions& options, std::ostream& out, std::ostream& err, Ord
 void print_usage(std::ostream& out) {
     out << "Usage: tradingbot_upstox [--mode <validate|dry-run|paper|live|show-orders>]\n"
         << "       [--config <path>] [--live-trading-enabled] [--confirm-live-trading]\n"
+        << "       [--limit <count>]\n"
         << "\n"
         << "Default mode: dry-run\n"
+        << "--limit applies to show-orders output.\n"
         << "Live mode requires both --live-trading-enabled and --confirm-live-trading.\n";
 }
 

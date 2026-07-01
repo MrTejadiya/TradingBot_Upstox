@@ -45,6 +45,12 @@ tradingbot::core::OrderRecord order_record() {
     };
 }
 
+tradingbot::core::OrderRecord order_record_with_id(const std::string& id) {
+    auto order = order_record();
+    order.broker_order_id = id;
+    return order;
+}
+
 void parses_default_dry_run_mode() {
     const auto result = tradingbot::app::parse_cli({});
     require(result.ok, "empty arguments should parse");
@@ -97,11 +103,42 @@ void parses_config_path_with_equals() {
     require(result.options.config_path == "config.json", "config path should store with equals syntax");
 }
 
+void parses_limit() {
+    const auto result = tradingbot::app::parse_cli({"--mode", "show-orders", "--limit", "10"});
+
+    require(result.ok, "limit should parse");
+    require(result.options.order_limit && *result.options.order_limit == 10, "limit should store positive integer");
+}
+
+void parses_limit_with_equals() {
+    const auto result = tradingbot::app::parse_cli({"--mode", "show-orders", "--limit=25"});
+
+    require(result.ok, "limit with equals should parse");
+    require(result.options.order_limit && *result.options.order_limit == 25, "limit should store equals value");
+}
+
 void rejects_missing_config_path() {
     const auto result = tradingbot::app::parse_cli({"--config"});
 
     require(!result.ok, "missing config path should fail");
     require(result.error.find("--config requires a value") != std::string::npos, "missing config error should be clear");
+}
+
+void rejects_missing_limit() {
+    const auto result = tradingbot::app::parse_cli({"--limit"});
+
+    require(!result.ok, "missing limit should fail");
+    require(result.error.find("--limit requires a value") != std::string::npos, "missing limit error should be clear");
+}
+
+void rejects_invalid_limit() {
+    const auto text_result = tradingbot::app::parse_cli({"--limit", "many"});
+    const auto zero_result = tradingbot::app::parse_cli({"--limit=0"});
+
+    require(!text_result.ok, "text limit should fail");
+    require(text_result.error.find("positive integer") != std::string::npos, "text limit error should be clear");
+    require(!zero_result.ok, "zero limit should fail");
+    require(zero_result.error.find("positive integer") != std::string::npos, "zero limit error should be clear");
 }
 
 void blocks_live_mode_in_scaffold() {
@@ -188,6 +225,22 @@ void show_orders_reports_history_reader_failure() {
     require(err.str().find("database unavailable") != std::string::npos, "reader error should be reported");
 }
 
+void show_orders_applies_limit_to_loaded_history() {
+    std::ostringstream out;
+    std::ostringstream err;
+    tradingbot::app::CliOptions options;
+    options.mode = tradingbot::app::Mode::ShowOrders;
+    options.order_limit = 1;
+    FakeOrderHistoryReader reader;
+    reader.result = {.ok = true, .orders = {order_record_with_id("ORDER-1"), order_record_with_id("ORDER-2")}};
+
+    const auto code = tradingbot::app::run_cli(options, out, err, &reader);
+
+    require(code == 0, "limited show-orders should run");
+    require(out.str().find("ORDER-1") != std::string::npos, "limited output should include first order");
+    require(out.str().find("ORDER-2") == std::string::npos, "limited output should omit later order");
+}
+
 }  // namespace
 
 int main() {
@@ -197,12 +250,17 @@ int main() {
     parses_live_gate_flags();
     parses_config_path();
     parses_config_path_with_equals();
+    parses_limit();
+    parses_limit_with_equals();
     rejects_missing_config_path();
+    rejects_missing_limit();
+    rejects_invalid_limit();
     blocks_live_mode_in_scaffold();
     allows_live_mode_after_explicit_gates();
     allows_paper_mode_without_live_gates();
     show_orders_prints_empty_state();
     show_orders_renders_loaded_history();
     show_orders_reports_history_reader_failure();
+    show_orders_applies_limit_to_loaded_history();
     return 0;
 }

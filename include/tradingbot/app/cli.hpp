@@ -2,7 +2,9 @@
 
 #include "tradingbot/core/domain.hpp"
 
+#include <cstddef>
 #include <iosfwd>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -24,6 +26,7 @@ struct CliOptions {
     bool live_trading_confirmed{false};
     bool help_requested{false};
     std::string config_path;
+    std::optional<std::size_t> order_limit;
 };
 
 struct CliResult {
