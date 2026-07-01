@@ -15,6 +15,11 @@ public:
     }
     void save_risk_event(const tradingbot::core::RiskEvent&) override {}
     void save_audit_event(const tradingbot::persistence::AuditEvent&) override {}
+    void save_strategy_signal(const tradingbot::core::StrategySignal&) override {}
+    void save_decision(const tradingbot::core::Decision&) override {}
+    void save_quote_snapshot(const tradingbot::core::QuoteSnapshot&) override {}
+    void save_candle(const tradingbot::core::Candle&) override {}
+    void save_api_event(const tradingbot::infra::ApiEvent&) override {}
 };
 
 void require(bool condition, const std::string& message) {
@@ -40,6 +45,63 @@ tradingbot::core::RiskEvent risk_event() {
         .reason_code = "APPROVED",
         .detail = "ok",
         .timestamp = tradingbot::core::Clock::now(),
+    };
+}
+
+tradingbot::core::StrategySignal strategy_signal() {
+    return {
+        .instrument_key = {"NSE_EQ|INE002A01018"},
+        .action = tradingbot::core::TradeAction::Buy,
+        .confidence = 0.8,
+        .suggested_quantity = 1,
+        .reason = "test signal",
+        .strategy_name = "test_strategy",
+        .timestamp = tradingbot::core::Clock::now(),
+    };
+}
+
+tradingbot::core::Decision decision() {
+    return {
+        .instrument_key = {"NSE_EQ|INE002A01018"},
+        .type = tradingbot::core::DecisionType::Buy,
+        .confidence = 0.8,
+        .quantity = 1,
+        .price = 100.0,
+        .reason = "test decision",
+        .source = "test",
+        .timestamp = tradingbot::core::Clock::now(),
+    };
+}
+
+tradingbot::core::QuoteSnapshot quote_snapshot() {
+    return {
+        .instrument_key = {"NSE_EQ|INE002A01018"},
+        .timestamp = tradingbot::core::Clock::now(),
+        .ltp = 100.0,
+    };
+}
+
+tradingbot::core::Candle candle() {
+    return {
+        .instrument_key = {"NSE_EQ|INE002A01018"},
+        .timestamp = tradingbot::core::Clock::now(),
+        .open = 99.0,
+        .high = 101.0,
+        .low = 98.0,
+        .close = 100.0,
+        .volume = 1000,
+        .interval = "1d",
+    };
+}
+
+tradingbot::infra::ApiEvent api_event() {
+    return {
+        .method = "GET",
+        .url = "https://api.upstox.com/v3/test",
+        .status_code = 200,
+        .attempt_count = 1,
+        .retried = false,
+        .redacted_request_metadata = "token=<redacted>",
     };
 }
 
@@ -69,11 +131,21 @@ void persists_records_asynchronously() {
                 .created_at = tradingbot::core::Clock::now(),
             }),
             "audit event should enqueue");
+    require(worker.persist_strategy_signal(strategy_signal()), "strategy signal should enqueue");
+    require(worker.persist_decision(decision()), "decision should enqueue");
+    require(worker.persist_quote_snapshot(quote_snapshot()), "quote snapshot should enqueue");
+    require(worker.persist_candle(candle()), "candle should enqueue");
+    require(worker.persist_api_event(api_event()), "API event should enqueue");
     worker.drain();
 
     require(sink->orders().size() == 1, "order should persist");
     require(sink->risk_events().size() == 1, "risk event should persist");
     require(sink->audit_events().size() == 1, "audit event should persist");
+    require(sink->strategy_signals().size() == 1, "strategy signal should persist");
+    require(sink->decisions().size() == 1, "decision should persist");
+    require(sink->quote_snapshots().size() == 1, "quote snapshot should persist");
+    require(sink->candles().size() == 1, "candle should persist");
+    require(sink->api_events().size() == 1, "API event should persist");
 }
 
 void rejects_writes_before_start() {
@@ -82,6 +154,11 @@ void rejects_writes_before_start() {
     tradingbot::persistence::PersistenceWorker worker(sink, migrations);
 
     require(!worker.persist_order(order_record()), "worker should reject writes before start");
+    require(!worker.persist_strategy_signal(strategy_signal()), "signal write should reject before start");
+    require(!worker.persist_decision(decision()), "decision write should reject before start");
+    require(!worker.persist_quote_snapshot(quote_snapshot()), "quote write should reject before start");
+    require(!worker.persist_candle(candle()), "candle write should reject before start");
+    require(!worker.persist_api_event(api_event()), "API event write should reject before start");
 }
 
 void captures_sink_errors() {
@@ -114,4 +191,3 @@ int main() {
     fails_start_without_sink();
     return 0;
 }
-
