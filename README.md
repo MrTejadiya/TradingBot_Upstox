@@ -92,3 +92,6 @@ sell signals.
 
 The risk manager validates decisions against instrument status, quantity caps,
 duplicate open orders, buy funds, and sell holdings before orders are created.
+
+The kill switch emits emergency rejected risk events for manual, configuration,
+or external stop triggers.

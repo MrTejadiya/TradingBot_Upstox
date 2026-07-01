@@ -157,3 +157,11 @@ add_executable(tradingbot_risk_manager_tests
 target_link_libraries(tradingbot_risk_manager_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_risk_manager_tests COMMAND tradingbot_risk_manager_tests)
+
+add_executable(tradingbot_kill_switch_tests
+    strategy/kill_switch_tests.cpp
+)
+
+target_link_libraries(tradingbot_kill_switch_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_kill_switch_tests COMMAND tradingbot_kill_switch_tests)
