@@ -17,10 +17,12 @@ If Ninja is not available, omit `-G "Ninja"` and let CMake choose a local genera
 ```powershell
 .\build\tradingbot_upstox.exe --mode validate
 .\build\tradingbot_upstox.exe --mode dry-run
+.\build\tradingbot_upstox.exe --mode paper
 .\build\tradingbot_upstox.exe --mode show-orders
 ```
 
-`dry-run` is the default mode. `live` requires explicit live-trading gates.
+`dry-run` is the default mode. `paper` uses local simulator/backtest components
+without broker order placement. `live` requires explicit live-trading gates.
 
 ## Configuration
 

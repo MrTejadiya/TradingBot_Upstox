@@ -77,6 +77,22 @@ void allows_live_mode_after_explicit_gates() {
     require(out.str().find("gates are satisfied") != std::string::npos, "live mode should confirm gates");
 }
 
+void allows_paper_mode_without_live_gates() {
+    std::ostringstream out;
+    std::ostringstream err;
+    tradingbot::app::CliOptions options;
+    options.mode = tradingbot::app::Mode::Paper;
+
+    const auto code = tradingbot::app::run_cli(options, out, err);
+
+    require(code == 0, "paper mode should run without live gates");
+    require(err.str().empty(), "paper mode should not emit errors");
+    require(out.str().find("local simulator and backtest components are available") != std::string::npos,
+            "paper mode should describe simulator readiness");
+    require(out.str().find("broker order placement is disabled") != std::string::npos,
+            "paper mode should confirm broker orders are disabled");
+}
+
 void show_orders_prints_empty_state() {
     std::ostringstream out;
     std::ostringstream err;
@@ -98,6 +114,7 @@ int main() {
     parses_live_gate_flags();
     blocks_live_mode_in_scaffold();
     allows_live_mode_after_explicit_gates();
+    allows_paper_mode_without_live_gates();
     show_orders_prints_empty_state();
     return 0;
 }

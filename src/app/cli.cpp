@@ -137,7 +137,8 @@ int run_cli(const CliOptions& options, std::ostream& out, std::ostream& err) {
             out << "dry-run mode selected: live order placement is disabled.\n";
             return 0;
         case Mode::Paper:
-            out << "paper mode is reserved for a future portfolio simulator.\n";
+            out << "paper mode selected: local simulator and backtest components are available; broker order "
+                   "placement is disabled.\n";
             return 0;
         case Mode::Live:
             out << "live mode selected: live order placement gates are satisfied.\n";
