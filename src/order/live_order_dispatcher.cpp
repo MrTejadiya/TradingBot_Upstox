@@ -55,6 +55,9 @@ DispatchResult LiveOrderDispatcher::dispatch(const core::OrderRequest& request, 
     if (!gates.market_session.order_allowed) {
         return reject(request, "market session gate rejected: " + gates.market_session.reason_code, dispatched_at);
     }
+    if (request.order_type == core::OrderType::Market) {
+        return reject(request, "market orders are disabled for version 1 live trading", dispatched_at);
+    }
     if (!api_client_) {
         return reject(request, "Upstox API client is required", dispatched_at);
     }
@@ -148,4 +151,3 @@ std::string parse_upstox_order_id(const std::string& response_body) {
 }
 
 }  // namespace tradingbot::order
-

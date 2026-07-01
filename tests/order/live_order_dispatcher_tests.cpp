@@ -137,6 +137,21 @@ void market_session_gate_blocks_api_call() {
             "rejection should include session reason");
 }
 
+void market_order_blocks_api_call() {
+    auto transport = std::make_shared<FakeTransport>();
+    auto client = std::make_shared<tradingbot::infra::UpstoxApiClient>("https://api-hft.upstox.com", "token", transport);
+    tradingbot::order::LiveOrderDispatcher dispatcher(client);
+    auto request = valid_request();
+    request.order_type = tradingbot::core::OrderType::Market;
+
+    const auto result = dispatcher.dispatch(request, open_gates(), tradingbot::core::Clock::now());
+
+    require(!result.accepted, "market order should reject in live mode");
+    require(transport->requests.empty(), "market order should not call API");
+    require(result.record.rejection_reason.find("market orders are disabled") != std::string::npos,
+            "rejection should explain market order policy");
+}
+
 void rate_limit_blocks_second_api_call() {
     auto transport = std::make_shared<FakeTransport>();
     transport->responses = {{.status_code = 200, .body = R"json({"status":"success","data":{"order_id":"ORDER-1"}})json"},
@@ -174,8 +189,8 @@ int main() {
     live_disabled_blocks_api_call();
     risk_gate_blocks_api_call();
     market_session_gate_blocks_api_call();
+    market_order_blocks_api_call();
     rate_limit_blocks_second_api_call();
     failed_api_response_rejects_record();
     return 0;
 }
-

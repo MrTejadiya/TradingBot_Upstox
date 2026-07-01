@@ -134,3 +134,6 @@ risk approval, order queuing, dry-run dispatch, and persistence without broker c
 
 Live trading must remain disabled until the manual acceptance checklist is
 completed: [docs/live_trading_acceptance_checklist.md](docs/live_trading_acceptance_checklist.md).
+
+SRS section 25 decisions are recorded in
+[docs/srs_open_decisions.md](docs/srs_open_decisions.md).
