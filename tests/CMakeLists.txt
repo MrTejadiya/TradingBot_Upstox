@@ -230,6 +230,14 @@ target_link_libraries(tradingbot_order_monitor_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_order_monitor_tests COMMAND tradingbot_order_monitor_tests)
 
+add_executable(tradingbot_backtest_runner_tests
+    paper/backtest_runner_tests.cpp
+)
+
+target_link_libraries(tradingbot_backtest_runner_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_backtest_runner_tests COMMAND tradingbot_backtest_runner_tests)
+
 add_executable(tradingbot_paper_portfolio_simulator_tests
     paper/paper_portfolio_simulator_tests.cpp
 )

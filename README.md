@@ -134,6 +134,10 @@ The paper portfolio simulator applies local filled order records to cash and
 holdings, then reports realized and unrealized P&L from supplied quotes without
 broker API calls.
 
+The backtest runner replays candle history through existing strategy interfaces,
+aggregates decisions, and applies local paper fills for deterministic performance
+checks.
+
 Live order placement targets Upstox V3 `/v3/order/place` only after explicit
 live-trading, risk, market-session, and rate-limit safety gates pass.
 

@@ -32,6 +32,7 @@ add_library(tradingbot_core
     src/order/order_monitor.cpp
     src/order/order_queue.cpp
     src/order/rate_limited_executor.cpp
+    src/paper/backtest_runner.cpp
     src/paper/paper_portfolio_simulator.cpp
     src/persistence/persistence_worker.cpp
     src/persistence/sqlite_migrations.cpp
