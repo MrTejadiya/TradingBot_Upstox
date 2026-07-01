@@ -31,6 +31,9 @@ Version 1 uses JSON configuration. The loader validates these required sections:
 `exit_rules.max_holding_duration_hours` configures the maximum holding-period
 exit rule. Set it to `0` only when that exit should be disabled by the caller.
 
+`risk.max_order_value` caps the value of any individual buy or sell decision
+before order dispatch.
+
 Start from `config.example.json` and provide access tokens through the configured
 environment variable, not in the config file.
 

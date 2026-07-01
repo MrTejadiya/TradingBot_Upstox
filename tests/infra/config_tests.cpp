@@ -43,6 +43,7 @@ std::string valid_config_json() {
         },
         "risk": {
             "max_orders_per_day": 20,
+            "max_order_value": 25000.0,
             "max_daily_traded_value": 100000.0
         },
         "rate_limits": {
@@ -73,6 +74,7 @@ void loads_valid_json_config() {
     require(result.config.exit_rules.default_target_profit_pct == 10.0, "target profit should parse");
     require(result.config.exit_rules.max_holding_duration_hours == 720.0, "max holding duration should parse");
     require(result.config.risk.max_orders_per_day == 20, "daily order count should parse");
+    require(result.config.risk.max_order_value == 25000.0, "max order value should parse");
     require(result.config.rate_limits.order_api_safe_requests_per_second == 2.0, "order API safe limit should parse");
     require(result.config.storage.sqlite_path == "bot.sqlite3", "SQLite path should parse");
     require(result.config.logging.log_directory == "logs", "log directory should parse");

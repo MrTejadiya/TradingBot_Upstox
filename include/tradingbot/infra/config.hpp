@@ -39,6 +39,7 @@ struct ExitRulesConfig {
 
 struct RiskConfig {
     int max_orders_per_day{0};
+    double max_order_value{0.0};
     double max_daily_traded_value{0.0};
 };
 

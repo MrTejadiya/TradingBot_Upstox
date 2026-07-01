@@ -48,6 +48,13 @@ bool has_sufficient_funds(const RiskManagerRequest& request) {
     return (*request.decision.price * static_cast<double>(request.decision.quantity)) <= request.portfolio.available_funds;
 }
 
+std::optional<core::Money> decision_value(const RiskManagerRequest& request) {
+    if (!request.decision.price || *request.decision.price <= 0.0 || request.decision.quantity <= 0) {
+        return std::nullopt;
+    }
+    return *request.decision.price * static_cast<double>(request.decision.quantity);
+}
+
 }  // namespace
 
 core::RiskEvent RiskManager::evaluate(const RiskManagerRequest& request) const {
@@ -75,6 +82,13 @@ core::RiskEvent RiskManager::evaluate(const RiskManagerRequest& request) const {
     if (has_duplicate_open_order(request)) {
         return risk_event(request, core::RiskDecision::Rejected, "DUPLICATE_OPEN_ORDER",
                           "matching open order already exists for instrument and side");
+    }
+    if (request.max_order_value > 0.0) {
+        const auto value = decision_value(request);
+        if (value && *value > request.max_order_value) {
+            return risk_event(request, core::RiskDecision::Rejected, "MAX_ORDER_VALUE_EXCEEDED",
+                              "decision value exceeds configured max order value");
+        }
     }
 
     if (request.decision.type == core::DecisionType::Buy) {
@@ -114,4 +128,3 @@ std::string risk_decision_name(core::RiskDecision decision) {
 }
 
 }  // namespace tradingbot::strategy
-

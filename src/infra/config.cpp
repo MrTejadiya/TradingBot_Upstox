@@ -453,6 +453,8 @@ ConfigLoadResult load_config_from_json(const std::string& json_text) {
     if (risk != nullptr) {
         result.config.risk.max_orders_per_day =
             require_positive_int(*risk, "risk", "max_orders_per_day", result.errors);
+        result.config.risk.max_order_value =
+            require_non_negative_number(*risk, "risk", "max_order_value", result.errors);
         result.config.risk.max_daily_traded_value =
             require_non_negative_number(*risk, "risk", "max_daily_traded_value", result.errors);
     }
