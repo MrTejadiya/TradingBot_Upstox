@@ -1,5 +1,6 @@
 #include "tradingbot/strategy/exit_engine.hpp"
 
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -23,7 +24,12 @@ tradingbot::strategy::ExitEngineRequest base_request() {
             .stop_loss_pct = 5.0,
             .target_profit_pct = 10.0,
         },
-        .holding = {.instrument_key = {"NSE_EQ|INE002A01018"}, .quantity = 8, .average_buy_price = 100.0},
+        .holding = {
+            .instrument_key = {"NSE_EQ|INE002A01018"},
+            .quantity = 8,
+            .average_buy_price = 100.0,
+            .acquired_at = tradingbot::core::Clock::now() - std::chrono::hours{24},
+        },
         .quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 100.0},
         .candles = {{.instrument_key = {"NSE_EQ|INE002A01018"}, .high = 120.0, .close = 110.0}},
         .evaluated_at = tradingbot::core::Clock::now(),
@@ -143,6 +149,46 @@ void trailing_stop_skips_without_favorable_move() {
     require(!result.decision.has_value(), "trailing stop should not exit before favorable move");
 }
 
+void maximum_holding_duration_matches_after_trailing_stop() {
+    auto request = base_request();
+    request.instrument.manual_target_price = std::nullopt;
+    request.instrument.target_profit_pct = 50.0;
+    request.instrument.trailing_stop_pct = std::nullopt;
+    request.max_holding_duration = std::chrono::hours{12};
+
+    const auto result = tradingbot::strategy::ExitEngine{}.evaluate(request);
+
+    require(result.exit_reason == tradingbot::core::ExitReason::MaximumHoldingDuration,
+            "max holding duration should exit when age exceeds limit");
+    require(result.decision->source == "exit_engine:maximum_holding_duration",
+            "source should name maximum holding duration");
+}
+
+void trailing_stop_beats_maximum_holding_duration() {
+    auto request = base_request();
+    request.instrument.manual_target_price = std::nullopt;
+    request.instrument.target_profit_pct = 50.0;
+    request.instrument.trailing_stop_pct = 4.0;
+    request.max_holding_duration = std::chrono::hours{12};
+    request.quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 115.0};
+
+    const auto result = tradingbot::strategy::ExitEngine{}.evaluate(request);
+
+    require(result.exit_reason == tradingbot::core::ExitReason::TrailingStop,
+            "trailing stop should beat maximum holding duration per SRS priority");
+}
+
+void maximum_holding_duration_skips_before_limit() {
+    auto request = base_request();
+    request.instrument.manual_target_price = std::nullopt;
+    request.instrument.target_profit_pct = 50.0;
+    request.max_holding_duration = std::chrono::hours{48};
+
+    const auto result = tradingbot::strategy::ExitEngine{}.evaluate(request);
+
+    require(!result.decision.has_value(), "max holding duration should skip before configured limit");
+}
+
 void no_exit_returns_diagnostic() {
     const auto result = tradingbot::strategy::ExitEngine{}.evaluate(base_request());
 
@@ -177,6 +223,9 @@ int main() {
     strategy_sell_signal_beats_trailing_stop();
     trailing_stop_matches_after_strategy_signals();
     trailing_stop_skips_without_favorable_move();
+    maximum_holding_duration_matches_after_trailing_stop();
+    trailing_stop_beats_maximum_holding_duration();
+    maximum_holding_duration_skips_before_limit();
     no_exit_returns_diagnostic();
     rejected_risk_event_triggers_emergency_exit();
     return 0;

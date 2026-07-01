@@ -3,6 +3,7 @@
 #include "tradingbot/strategy/strategy.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <sstream>
 
 namespace tradingbot::strategy {
@@ -55,6 +56,16 @@ bool has_rejected_risk_event(const ExitEngineRequest& request) {
         }
     }
     return false;
+}
+
+bool exceeds_max_holding_duration(const ExitEngineRequest& request) {
+    if (!request.max_holding_duration || *request.max_holding_duration <= std::chrono::seconds{0}) {
+        return false;
+    }
+    if (request.holding.acquired_at == core::TimePoint{}) {
+        return false;
+    }
+    return request.evaluated_at - request.holding.acquired_at >= *request.max_holding_duration;
 }
 
 std::optional<core::StrategySignal> strongest_sell_signal(const ExitEngineRequest& request) {
@@ -153,6 +164,15 @@ ExitEngineResult ExitEngine::evaluate(const ExitEngineRequest& request) const {
                 return result;
             }
         }
+    }
+
+    if (exceeds_max_holding_duration(request)) {
+        std::ostringstream reason;
+        reason << "holding duration reached configured maximum of " << request.max_holding_duration->count()
+               << " seconds";
+        result.exit_reason = core::ExitReason::MaximumHoldingDuration;
+        result.decision = build_exit_decision(request, *result.exit_reason, reason.str(), 0.72, price);
+        return result;
     }
 
     result.diagnostics.push_back("exit skipped: no exit rule matched");

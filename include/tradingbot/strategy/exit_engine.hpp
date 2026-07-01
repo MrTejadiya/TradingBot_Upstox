@@ -2,6 +2,7 @@
 
 #include "tradingbot/core/domain.hpp"
 
+#include <chrono>
 #include <optional>
 #include <string>
 #include <vector>
@@ -15,6 +16,7 @@ struct ExitEngineRequest {
     std::vector<core::Candle> candles;
     std::vector<core::StrategySignal> strategy_signals;
     std::vector<core::RiskEvent> risk_events;
+    std::optional<std::chrono::seconds> max_holding_duration;
     bool emergency_exit{false};
     core::TimePoint evaluated_at{};
 };
