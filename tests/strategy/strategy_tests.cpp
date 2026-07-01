@@ -86,6 +86,9 @@ void quote_freshness_rejects_bad_or_old_quotes() {
             "recent timestamped quote should be usable");
     require(!tradingbot::strategy::is_usable_quote({.timestamp = now - std::chrono::minutes{6}, .ltp = 100.0}, now),
             "old timestamped quote should not be usable");
+    require(tradingbot::strategy::is_usable_quote({.timestamp = now - std::chrono::minutes{6}, .ltp = 100.0}, now,
+                                                 std::chrono::minutes{10}),
+            "custom freshness window should allow a quote within override age");
 }
 
 void signal_validation_rejects_unsafe_signals() {

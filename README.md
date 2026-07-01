@@ -31,6 +31,10 @@ Version 1 uses JSON configuration. The loader validates these required sections:
 `exit_rules.max_holding_duration_hours` configures the maximum holding-period
 exit rule. Set it to `0` only when that exit should be disabled by the caller.
 
+`market_data.max_quote_age_seconds` configures the quote freshness window used
+by strategy and exit-engine price checks. Timestamp-less legacy quotes retain
+the default behavior.
+
 `risk.max_order_value` caps the value of any individual buy or sell decision
 before order dispatch.
 

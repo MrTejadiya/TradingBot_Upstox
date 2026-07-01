@@ -17,6 +17,7 @@ struct ExitEngineRequest {
     std::vector<core::StrategySignal> strategy_signals;
     std::vector<core::RiskEvent> risk_events;
     std::optional<std::chrono::seconds> max_holding_duration;
+    std::optional<std::chrono::seconds> max_quote_age;
     bool emergency_exit{false};
     core::TimePoint evaluated_at{};
 };

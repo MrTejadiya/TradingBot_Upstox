@@ -29,7 +29,8 @@ std::string valid_config_json() {
             "instruments_csv": "instruments.csv"
         },
         "market_data": {
-            "candle_intervals": ["1d", "1h", "15m"]
+            "candle_intervals": ["1d", "1h", "15m"],
+            "max_quote_age_seconds": 300.0
         },
         "strategies": {
             "buy_signal_mode": "weighted_score",
@@ -70,6 +71,7 @@ void loads_valid_json_config() {
     require(result.config.upstox.force_ipv4, "force IPv4 flag should parse");
     require(result.config.input.instruments_csv == "instruments.csv", "CSV path should parse");
     require(result.config.market_data.candle_intervals.size() == 3, "candle intervals should parse");
+    require(result.config.market_data.max_quote_age_seconds == 300.0, "quote freshness should parse");
     require(result.config.strategies.buy_signal_mode == "weighted_score", "buy signal mode should parse");
     require(result.config.exit_rules.default_target_profit_pct == 10.0, "target profit should parse");
     require(result.config.exit_rules.max_holding_duration_hours == 720.0, "max holding duration should parse");

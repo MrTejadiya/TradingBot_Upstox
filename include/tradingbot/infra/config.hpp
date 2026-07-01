@@ -23,6 +23,7 @@ struct InputConfig {
 
 struct MarketDataConfig {
     std::vector<std::string> candle_intervals;
+    double max_quote_age_seconds{300.0};
 };
 
 struct StrategiesConfig {

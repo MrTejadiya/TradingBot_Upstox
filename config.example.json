@@ -11,7 +11,8 @@
     "instruments_csv": "instruments.csv"
   },
   "market_data": {
-    "candle_intervals": ["1d", "1h", "15m"]
+    "candle_intervals": ["1d", "1h", "15m"],
+    "max_quote_age_seconds": 300.0
   },
   "strategies": {
     "buy_signal_mode": "weighted_score",

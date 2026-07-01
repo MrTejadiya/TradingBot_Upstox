@@ -23,6 +23,13 @@ std::optional<core::Money> latest_close(const StrategyContext& context) {
     return context.candles.back().close;
 }
 
+std::chrono::seconds quote_freshness_window(const std::optional<std::chrono::seconds>& override) {
+    if (override && *override > std::chrono::seconds{0}) {
+        return *override;
+    }
+    return std::chrono::minutes{5};
+}
+
 bool is_usable_quote(const core::QuoteSnapshot& quote, core::TimePoint evaluated_at, std::chrono::seconds max_age) {
     if (quote.stale || quote.ltp <= 0.0) {
         return false;

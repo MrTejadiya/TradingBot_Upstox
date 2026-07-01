@@ -435,6 +435,8 @@ ConfigLoadResult load_config_from_json(const std::string& json_text) {
         } else {
             result.config.market_data.candle_intervals = *intervals;
         }
+        result.config.market_data.max_quote_age_seconds =
+            require_non_negative_number(*market_data, "market_data", "max_quote_age_seconds", result.errors);
     }
     if (strategies != nullptr) {
         result.config.strategies.buy_signal_mode = require_string(*strategies, "strategies", "buy_signal_mode", result.errors);
