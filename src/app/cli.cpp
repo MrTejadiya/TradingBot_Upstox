@@ -67,6 +67,7 @@ CliResult parse_cli(std::vector<std::string> args) {
 
         if (arg == "--live-trading-enabled") {
             result.options.live_trading_enabled = true;
+            result.options.live_trading_enabled_overridden = true;
             continue;
         }
 
@@ -89,6 +90,17 @@ CliResult parse_cli(std::vector<std::string> args) {
                 return result;
             }
             result.options.mode = parsed_mode;
+            result.options.mode_overridden = true;
+            continue;
+        }
+
+        if (arg == "--config") {
+            if (index + 1 >= args.size()) {
+                result.ok = false;
+                result.error = "--config requires a value";
+                return result;
+            }
+            result.options.config_path = args[++index];
             continue;
         }
 
@@ -102,6 +114,13 @@ CliResult parse_cli(std::vector<std::string> args) {
                 return result;
             }
             result.options.mode = parsed_mode;
+            result.options.mode_overridden = true;
+            continue;
+        }
+
+        constexpr std::string_view config_prefix{"--config="};
+        if (arg.rfind(config_prefix, 0) == 0) {
+            result.options.config_path = arg.substr(config_prefix.size());
             continue;
         }
 
@@ -163,7 +182,7 @@ int run_cli(const CliOptions& options, std::ostream& out, std::ostream& err, Ord
 
 void print_usage(std::ostream& out) {
     out << "Usage: tradingbot_upstox [--mode <validate|dry-run|paper|live|show-orders>]\n"
-        << "       [--live-trading-enabled] [--confirm-live-trading]\n"
+        << "       [--config <path>] [--live-trading-enabled] [--confirm-live-trading]\n"
         << "\n"
         << "Default mode: dry-run\n"
         << "Live mode requires both --live-trading-enabled and --confirm-live-trading.\n";

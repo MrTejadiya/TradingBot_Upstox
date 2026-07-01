@@ -18,9 +18,12 @@ enum class Mode {
 
 struct CliOptions {
     Mode mode{Mode::DryRun};
+    bool mode_overridden{false};
     bool live_trading_enabled{false};
+    bool live_trading_enabled_overridden{false};
     bool live_trading_confirmed{false};
     bool help_requested{false};
+    std::string config_path;
 };
 
 struct CliResult {

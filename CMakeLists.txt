@@ -28,6 +28,7 @@ endif()
 
 add_library(tradingbot_core
     src/core/domain.cpp
+    src/app/app_runner.cpp
     src/app/cli.cpp
     src/app/operating_mode.cpp
     src/app/order_display.cpp

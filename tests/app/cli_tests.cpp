@@ -83,6 +83,27 @@ void parses_live_gate_flags() {
     require(result.options.live_trading_confirmed, "live trading confirmation flag should parse");
 }
 
+void parses_config_path() {
+    const auto result = tradingbot::app::parse_cli({"--config", "config.json"});
+
+    require(result.ok, "config path should parse");
+    require(result.options.config_path == "config.json", "config path should store");
+}
+
+void parses_config_path_with_equals() {
+    const auto result = tradingbot::app::parse_cli({"--config=config.json"});
+
+    require(result.ok, "config path with equals should parse");
+    require(result.options.config_path == "config.json", "config path should store with equals syntax");
+}
+
+void rejects_missing_config_path() {
+    const auto result = tradingbot::app::parse_cli({"--config"});
+
+    require(!result.ok, "missing config path should fail");
+    require(result.error.find("--config requires a value") != std::string::npos, "missing config error should be clear");
+}
+
 void blocks_live_mode_in_scaffold() {
     std::ostringstream out;
     std::ostringstream err;
@@ -174,6 +195,9 @@ int main() {
     parses_all_declared_modes();
     rejects_unknown_mode();
     parses_live_gate_flags();
+    parses_config_path();
+    parses_config_path_with_equals();
+    rejects_missing_config_path();
     blocks_live_mode_in_scaffold();
     allows_live_mode_after_explicit_gates();
     allows_paper_mode_without_live_gates();

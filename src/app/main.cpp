@@ -1,4 +1,4 @@
-#include "tradingbot/app/cli.hpp"
+#include "tradingbot/app/app_runner.hpp"
 
 #include <iostream>
 #include <string>
@@ -11,13 +11,5 @@ int main(int argc, char** argv) {
         args.emplace_back(argv[index]);
     }
 
-    const auto parsed = tradingbot::app::parse_cli(args);
-    if (!parsed.ok) {
-        std::cerr << parsed.error << "\n";
-        tradingbot::app::print_usage(std::cerr);
-        return 2;
-    }
-
-    return tradingbot::app::run_cli(parsed.options, std::cout, std::cerr);
+    return tradingbot::app::run_app(args, std::cout, std::cerr);
 }
-

@@ -6,6 +6,16 @@ target_link_libraries(tradingbot_cli_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_cli_tests COMMAND tradingbot_cli_tests)
 
+add_executable(tradingbot_app_runner_tests
+    app/app_runner_tests.cpp
+)
+
+target_link_libraries(tradingbot_app_runner_tests PRIVATE tradingbot_core)
+
+copy_sqlite_runtime(tradingbot_app_runner_tests)
+
+add_test(NAME tradingbot_app_runner_tests COMMAND tradingbot_app_runner_tests)
+
 add_executable(tradingbot_operating_mode_tests
     app/operating_mode_tests.cpp
 )
