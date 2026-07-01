@@ -18,6 +18,7 @@ __pycache__/
 *.sqlite
 *.sqlite3
 *.log
+reports/
 
 # IDE/editor files
 .vs/

@@ -1,5 +1,6 @@
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -8,11 +9,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.live_rsi_divergence_scan import (
     Candle,
     analyze_candles,
+    chart_filename,
     has_bearish_divergence,
     has_bullish_divergence,
     historical_candle_path,
     parse_candles,
     rsi_series,
+    write_chart,
 )
 
 
@@ -80,6 +83,28 @@ class LiveRsiDivergenceScanTests(unittest.TestCase):
         self.assertEqual(result.candle_count, len(candles))
         self.assertEqual(result.latest_close, 97)
         self.assertIsNotNone(result.latest_rsi)
+
+    def test_chart_filename_sanitizes_instrument_key(self):
+        self.assertEqual(
+            chart_filename("RELIANCE_BSE", "BSE_EQ|INE002A01018"),
+            "RELIANCE_BSE_BSE_EQ_INE002A01018.png",
+        )
+
+    def test_write_chart_creates_png(self):
+        candles = [
+            Candle(str(index), close - 1, close + 1, close - 2, close, 1000)
+            for index, close in enumerate(
+                [100, 101, 102, 101, 100, 99, 100, 101, 100, 99, 98, 99, 100, 99, 98, 97, 98, 99, 98, 97, 96, 97]
+            )
+        ]
+        result = analyze_candles(candles, period=5)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "chart.png"
+
+            write_chart(path, candles, result)
+
+            self.assertTrue(path.exists())
+            self.assertEqual(path.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
 
 
 if __name__ == "__main__":
