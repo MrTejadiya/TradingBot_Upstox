@@ -272,6 +272,16 @@ copy_sqlite_runtime(tradingbot_sqlite_database_tests)
 
 add_test(NAME tradingbot_sqlite_database_tests COMMAND tradingbot_sqlite_database_tests)
 
+add_executable(tradingbot_sqlite_persistence_sink_tests
+    persistence/sqlite_persistence_sink_tests.cpp
+)
+
+target_link_libraries(tradingbot_sqlite_persistence_sink_tests PRIVATE tradingbot_core)
+
+copy_sqlite_runtime(tradingbot_sqlite_persistence_sink_tests)
+
+add_test(NAME tradingbot_sqlite_persistence_sink_tests COMMAND tradingbot_sqlite_persistence_sink_tests)
+
 add_executable(tradingbot_sqlite_time_tests
     persistence/sqlite_time_tests.cpp
 )

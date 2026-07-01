@@ -60,6 +60,7 @@ add_library(tradingbot_core
     src/persistence/risk_event_mapper.cpp
     src/persistence/sqlite_database.cpp
     src/persistence/sqlite_migrations.cpp
+    src/persistence/sqlite_persistence_sink.cpp
     src/persistence/sqlite_time.cpp
     src/persistence/strategy_signal_mapper.cpp
     src/runtime/worker_group.cpp
