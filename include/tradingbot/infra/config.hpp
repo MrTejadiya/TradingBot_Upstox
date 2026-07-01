@@ -34,6 +34,7 @@ struct StrategiesConfig {
 struct ExitRulesConfig {
     double default_target_profit_pct{10.0};
     double default_stop_loss_pct{0.0};
+    double max_holding_duration_hours{0.0};
 };
 
 struct RiskConfig {

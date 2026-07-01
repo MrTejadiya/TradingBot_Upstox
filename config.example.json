@@ -20,7 +20,8 @@
   },
   "exit_rules": {
     "default_target_profit_pct": 10.0,
-    "default_stop_loss_pct": 3.0
+    "default_stop_loss_pct": 3.0,
+    "max_holding_duration_hours": 720.0
   },
   "risk": {
     "max_orders_per_day": 20,

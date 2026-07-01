@@ -28,6 +28,9 @@ Version 1 uses JSON configuration. The loader validates these required sections:
 `app`, `upstox`, `input`, `market_data`, `strategies`, `exit_rules`, `risk`,
 `rate_limits`, `storage`, and `logging`.
 
+`exit_rules.max_holding_duration_hours` configures the maximum holding-period
+exit rule. Set it to `0` only when that exit should be disabled by the caller.
+
 Start from `config.example.json` and provide access tokens through the configured
 environment variable, not in the config file.
 

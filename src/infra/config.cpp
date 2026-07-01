@@ -447,6 +447,8 @@ ConfigLoadResult load_config_from_json(const std::string& json_text) {
             require_non_negative_number(*exit_rules, "exit_rules", "default_target_profit_pct", result.errors);
         result.config.exit_rules.default_stop_loss_pct =
             require_non_negative_number(*exit_rules, "exit_rules", "default_stop_loss_pct", result.errors);
+        result.config.exit_rules.max_holding_duration_hours =
+            require_non_negative_number(*exit_rules, "exit_rules", "max_holding_duration_hours", result.errors);
     }
     if (risk != nullptr) {
         result.config.risk.max_orders_per_day =
