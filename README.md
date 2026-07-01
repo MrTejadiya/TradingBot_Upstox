@@ -52,6 +52,11 @@ trading day when the caller supplies the current daily traded value.
 Start from `config.example.json` and provide access tokens through the configured
 environment variable, not in the config file.
 
+`input.instruments_csv` points to the configured instrument universe. When the
+path is relative, configured app runs resolve it relative to the config file
+location. For SQLite-backed non-reporting modes, the app loads this CSV before
+the mode runs and upserts the instrument rows into SQLite.
+
 Set `upstox.force_ipv4=true` for live/order API traffic when the Upstox static
 IP allowlist is configured with IPv4 addresses. The RK9311-29 broker test showed
 that IPv6 egress can be rejected even when the configured IPv4 static IP is
@@ -163,8 +168,11 @@ candles, API events, and bot run lifecycle rows through a sink abstraction.
 When `storage.sqlite_path` is configured, the app runner opens the SQLite
 database, applies pending migrations, records a started bot-run row before
 configured non-reporting modes execute, and records a completed row after the
-run returns. The run row stores the mode and a stable hash of the loaded config
-file text so persisted records can be traced back to their runtime settings.
+run returns. It also imports configured instruments transactionally before the
+run starts; a failed instrument batch rolls back and blocks startup instead of
+leaving partial instrument state. The run row stores the mode and a stable hash
+of the loaded config file text so persisted records can be traced back to their
+runtime settings.
 
 On Windows, the build copies a compatible `sqlite3.dll` beside
 `tradingbot_upstox.exe` and the SQLite test binaries. SQLite is loaded at
