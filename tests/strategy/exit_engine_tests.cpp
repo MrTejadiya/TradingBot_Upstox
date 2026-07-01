@@ -49,6 +49,19 @@ tradingbot::core::StrategySignal sell_signal(double confidence, const std::strin
     };
 }
 
+tradingbot::core::StrategySignal target_signal(double confidence, double target, const std::string& name) {
+    return {
+        .instrument_key = {"NSE_EQ|INE002A01018"},
+        .action = tradingbot::core::TradeAction::Buy,
+        .confidence = confidence,
+        .suggested_quantity = 1,
+        .suggested_target_price = target,
+        .reason = name + " target",
+        .strategy_name = name,
+        .timestamp = tradingbot::core::Clock::now(),
+    };
+}
+
 void emergency_risk_has_highest_priority() {
     auto request = base_request();
     request.emergency_exit = true;
@@ -107,6 +120,45 @@ void strategy_sell_signal_is_used_after_price_rules() {
     require(result.decision->source == "exit_engine:strategy_signal:strong_sell",
             "strategy exit should pick strongest sell signal");
     require(result.decision->quantity == 8, "strategy exit should still use full holding quantity");
+}
+
+void fixed_target_beats_strategy_target() {
+    auto request = base_request();
+    request.instrument.manual_target_price = std::nullopt;
+    request.instrument.target_profit_pct = 10.0;
+    request.quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 112.0};
+    request.strategy_signals = {target_signal(0.95, 108.0, "strategy_target")};
+
+    const auto result = tradingbot::strategy::ExitEngine{}.evaluate(request);
+
+    require(result.exit_reason == tradingbot::core::ExitReason::FixedProfitTarget,
+            "fixed target should beat strategy target per SRS priority");
+}
+
+void strategy_target_beats_strategy_sell_signal() {
+    auto request = base_request();
+    request.instrument.manual_target_price = std::nullopt;
+    request.instrument.target_profit_pct = 50.0;
+    request.quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 108.0};
+    request.strategy_signals = {sell_signal(0.9, "strategy_exit"), target_signal(0.7, 106.0, "calculated_target")};
+
+    const auto result = tradingbot::strategy::ExitEngine{}.evaluate(request);
+
+    require(result.exit_reason == tradingbot::core::ExitReason::StrategyTarget,
+            "strategy target should beat generic strategy sell signal");
+    require(result.decision->source == "exit_engine:strategy_target", "source should name strategy target");
+}
+
+void strategy_target_skips_when_price_is_below_target() {
+    auto request = base_request();
+    request.instrument.manual_target_price = std::nullopt;
+    request.instrument.target_profit_pct = 50.0;
+    request.quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 108.0};
+    request.strategy_signals = {target_signal(0.9, 109.0, "calculated_target")};
+
+    const auto result = tradingbot::strategy::ExitEngine{}.evaluate(request);
+
+    require(!result.decision.has_value(), "strategy target should skip below target price");
 }
 
 void strategy_sell_signal_beats_trailing_stop() {
@@ -220,6 +272,9 @@ int main() {
     manual_target_beats_fixed_target();
     fixed_target_matches_when_manual_target_is_absent();
     strategy_sell_signal_is_used_after_price_rules();
+    fixed_target_beats_strategy_target();
+    strategy_target_beats_strategy_sell_signal();
+    strategy_target_skips_when_price_is_below_target();
     strategy_sell_signal_beats_trailing_stop();
     trailing_stop_matches_after_strategy_signals();
     trailing_stop_skips_without_favorable_move();

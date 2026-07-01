@@ -82,6 +82,22 @@ std::optional<core::StrategySignal> strongest_sell_signal(const ExitEngineReques
     return selected;
 }
 
+std::optional<core::StrategySignal> strongest_reached_strategy_target(const ExitEngineRequest& request,
+                                                                      core::Money price) {
+    std::optional<core::StrategySignal> selected;
+    for (const auto& signal : request.strategy_signals) {
+        if (!applies_to_instrument(signal.instrument_key, request.instrument.key) ||
+            !is_actionable_signal(signal) || !signal.suggested_target_price ||
+            price < *signal.suggested_target_price) {
+            continue;
+        }
+        if (!selected || signal.confidence > selected->confidence) {
+            selected = signal;
+        }
+    }
+    return selected;
+}
+
 }  // namespace
 
 ExitEngineResult ExitEngine::evaluate(const ExitEngineRequest& request) const {
@@ -132,6 +148,19 @@ ExitEngineResult ExitEngine::evaluate(const ExitEngineRequest& request) const {
             reason << "price " << *price << " reached fixed target " << target;
             result.exit_reason = core::ExitReason::FixedProfitTarget;
             result.decision = build_exit_decision(request, *result.exit_reason, reason.str(), 0.9, price);
+            return result;
+        }
+    }
+
+    if (price) {
+        const auto strategy_target = strongest_reached_strategy_target(request, *price);
+        if (strategy_target) {
+            std::ostringstream reason;
+            reason << "price " << *price << " reached strategy target "
+                   << *strategy_target->suggested_target_price << " from " << strategy_target->strategy_name;
+            result.exit_reason = core::ExitReason::StrategyTarget;
+            result.decision = build_exit_decision(request, *result.exit_reason, reason.str(),
+                                                  strategy_target->confidence, price);
             return result;
         }
     }
