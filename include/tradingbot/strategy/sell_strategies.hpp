@@ -16,5 +16,10 @@ public:
     StrategyEvaluation evaluate(const StrategyContext& context) const override;
 };
 
-}  // namespace tradingbot::strategy
+class TrailingStopSellStrategy final : public Strategy {
+public:
+    std::string name() const override;
+    StrategyEvaluation evaluate(const StrategyContext& context) const override;
+};
 
+}  // namespace tradingbot::strategy

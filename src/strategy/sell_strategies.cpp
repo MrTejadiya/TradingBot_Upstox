@@ -1,5 +1,6 @@
 #include "tradingbot/strategy/sell_strategies.hpp"
 
+#include <algorithm>
 #include <optional>
 #include <sstream>
 
@@ -35,6 +36,20 @@ core::StrategySignal build_sell_signal(const StrategyContext& context, const cor
         .strategy_name = strategy_name,
         .timestamp = context.evaluated_at,
     };
+}
+
+core::Money high_water_mark(const StrategyContext& context, const core::Holding& holding,
+                            std::optional<core::Money> price) {
+    auto high = holding.average_buy_price;
+    for (const auto& candle : context.candles) {
+        if (candle.instrument_key.value == context.instrument.key.value) {
+            high = std::max(high, candle.high > 0.0 ? candle.high : candle.close);
+        }
+    }
+    if (price) {
+        high = std::max(high, *price);
+    }
+    return high;
 }
 
 }  // namespace
@@ -104,5 +119,44 @@ StrategyEvaluation StopLossSellStrategy::evaluate(const StrategyContext& context
     return evaluation;
 }
 
-}  // namespace tradingbot::strategy
+std::string TrailingStopSellStrategy::name() const {
+    return "trailing_stop_sell";
+}
 
+StrategyEvaluation TrailingStopSellStrategy::evaluate(const StrategyContext& context) const {
+    StrategyEvaluation evaluation;
+    const auto holding = current_holding(context);
+    if (!holding) {
+        evaluation.diagnostics.push_back("trailing stop skipped: no current holding");
+        return evaluation;
+    }
+    if (!context.instrument.trailing_stop_pct || *context.instrument.trailing_stop_pct <= 0.0) {
+        evaluation.diagnostics.push_back("trailing stop skipped: trailing stop percentage is not configured");
+        return evaluation;
+    }
+
+    const auto price = current_price(context);
+    if (!price) {
+        evaluation.diagnostics.push_back("trailing stop skipped: no quote or close price available");
+        return evaluation;
+    }
+
+    const auto high = high_water_mark(context, *holding, price);
+    if (high <= holding->average_buy_price) {
+        evaluation.diagnostics.push_back("trailing stop skipped: no favorable price move yet");
+        return evaluation;
+    }
+
+    const auto trailing_stop = high * (1.0 - (*context.instrument.trailing_stop_pct / 100.0));
+    if (*price > trailing_stop) {
+        evaluation.diagnostics.push_back("trailing stop skipped: current price is above trailing stop");
+        return evaluation;
+    }
+
+    std::ostringstream reason;
+    reason << "price " << *price << " breached trailing stop " << trailing_stop << " from high " << high;
+    evaluation.signals.push_back(build_sell_signal(context, *holding, name(), 0.92, reason.str(), *price));
+    return evaluation;
+}
+
+}  // namespace tradingbot::strategy

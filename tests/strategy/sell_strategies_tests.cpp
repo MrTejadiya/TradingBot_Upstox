@@ -23,8 +23,9 @@ tradingbot::strategy::StrategyContext base_context() {
             .manual_target_price = 115.0,
             .stop_loss_pct = 5.0,
             .target_profit_pct = 10.0,
+            .trailing_stop_pct = 4.0,
         },
-        .candles = {{.instrument_key = {"NSE_EQ|INE002A01018"}, .close = 100.0}},
+        .candles = {{.instrument_key = {"NSE_EQ|INE002A01018"}, .high = 120.0, .close = 100.0}},
         .quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 116.0},
         .portfolio = {.available_funds = 50000.0,
                       .holdings = {{.instrument_key = {"NSE_EQ|INE002A01018"}, .quantity = 7, .average_buy_price = 100.0}}},
@@ -90,6 +91,40 @@ void stop_loss_skips_when_not_configured() {
     require(!evaluation.diagnostics.empty(), "stop loss skip should include diagnostic");
 }
 
+void trailing_stop_emits_sell_signal_after_reversal_from_high() {
+    auto context = base_context();
+    context.quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 115.0};
+
+    const auto evaluation = tradingbot::strategy::TrailingStopSellStrategy{}.evaluate(context);
+
+    require(evaluation.signals.size() == 1, "trailing stop should emit one signal");
+    const auto& signal = evaluation.signals.front();
+    require(signal.action == tradingbot::core::TradeAction::Sell, "trailing stop signal should be sell action");
+    require(signal.strategy_name == "trailing_stop_sell", "trailing stop strategy name should be present");
+    require(signal.suggested_quantity == 7, "trailing stop quantity should come from holding");
+    require(signal.reason.find("trailing stop") != std::string::npos, "reason should explain trailing stop");
+}
+
+void trailing_stop_skips_before_threshold_is_breached() {
+    auto context = base_context();
+    context.quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 118.0};
+
+    const auto evaluation = tradingbot::strategy::TrailingStopSellStrategy{}.evaluate(context);
+
+    require(evaluation.signals.empty(), "trailing stop should skip above trailing threshold");
+    require(!evaluation.diagnostics.empty(), "trailing stop skip should include diagnostic");
+}
+
+void trailing_stop_skips_when_not_configured() {
+    auto context = base_context();
+    context.instrument.trailing_stop_pct = std::nullopt;
+
+    const auto evaluation = tradingbot::strategy::TrailingStopSellStrategy{}.evaluate(context);
+
+    require(evaluation.signals.empty(), "trailing stop should skip without configured percentage");
+    require(!evaluation.diagnostics.empty(), "trailing stop skip should include diagnostic");
+}
+
 }  // namespace
 
 int main() {
@@ -98,6 +133,8 @@ int main() {
     stop_loss_emits_sell_signal_when_price_breaches_stop();
     sell_strategies_skip_without_holding();
     stop_loss_skips_when_not_configured();
+    trailing_stop_emits_sell_signal_after_reversal_from_high();
+    trailing_stop_skips_before_threshold_is_breached();
+    trailing_stop_skips_when_not_configured();
     return 0;
 }
-
