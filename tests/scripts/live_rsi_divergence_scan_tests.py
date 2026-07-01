@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import sys
 import tempfile
@@ -9,12 +11,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.live_rsi_divergence_scan import (
     Candle,
     analyze_candles,
+    build_parser,
     chart_filename,
     has_bearish_divergence,
     has_bullish_divergence,
     historical_candle_path,
     parse_candles,
     rsi_series,
+    validate_args,
     write_chart,
 )
 
@@ -105,6 +109,42 @@ class LiveRsiDivergenceScanTests(unittest.TestCase):
 
             self.assertTrue(path.exists())
             self.assertEqual(path.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
+
+    def test_validate_args_accepts_positive_values_and_complete_date_range(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "--interval",
+                "1",
+                "--lookback-days",
+                "220",
+                "--rsi-period",
+                "14",
+                "--wing-size",
+                "1",
+                "--from-date",
+                "2026-01-01",
+                "--to-date",
+                "2026-07-01",
+            ]
+        )
+
+        validate_args(parser, args)
+
+    def test_validate_args_rejects_non_positive_scanner_values(self):
+        parser = build_parser()
+        for option in ("--interval", "--lookback-days", "--rsi-period", "--wing-size"):
+            args = parser.parse_args([option, "0"])
+            with self.subTest(option=option):
+                with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                    validate_args(parser, args)
+
+    def test_validate_args_rejects_partial_date_range(self):
+        parser = build_parser()
+        args = parser.parse_args(["--from-date", "2026-01-01"])
+
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            validate_args(parser, args)
 
 
 if __name__ == "__main__":

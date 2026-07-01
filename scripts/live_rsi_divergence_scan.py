@@ -405,8 +405,18 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    for name in ("interval", "lookback_days", "rsi_period", "wing_size"):
+        if getattr(args, name) <= 0:
+            parser.error(f"--{name.replace('_', '-')} must be a positive integer")
+    if bool(args.from_date) != bool(args.to_date):
+        parser.error("--from-date and --to-date must be provided together")
+
+
 def main(argv: Iterable[str] | None = None) -> int:
-    args = build_parser().parse_args(list(argv) if argv is not None else None)
+    parser = build_parser()
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    validate_args(parser, args)
     from_date, to_date = (args.from_date, args.to_date) if args.from_date and args.to_date else default_dates(args.lookback_days)
     instruments = [parse_instrument(value) for value in args.instrument] or [
         Instrument("RELIANCE_NSE", "NSE_EQ|INE002A01018"),
