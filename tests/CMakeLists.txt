@@ -197,3 +197,11 @@ add_executable(tradingbot_dry_run_dispatcher_tests
 target_link_libraries(tradingbot_dry_run_dispatcher_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_dry_run_dispatcher_tests COMMAND tradingbot_dry_run_dispatcher_tests)
+
+add_executable(tradingbot_live_order_dispatcher_tests
+    order/live_order_dispatcher_tests.cpp
+)
+
+target_link_libraries(tradingbot_live_order_dispatcher_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_live_order_dispatcher_tests COMMAND tradingbot_live_order_dispatcher_tests)

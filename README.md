@@ -107,3 +107,6 @@ retry-after feedback and callback execution only when capacity is available.
 
 The dry-run order dispatcher records simulated accepted/rejected order records
 with deterministic dry-run IDs and no broker API calls.
+
+Live order placement targets Upstox V3 `/v3/order/place` only after explicit
+live-trading, risk, market-session, and rate-limit safety gates pass.
