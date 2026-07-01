@@ -82,6 +82,78 @@ CREATE INDEX IF NOT EXISTS idx_strategy_signals_run_id ON strategy_signals(run_i
 CREATE INDEX IF NOT EXISTS idx_audit_events_run_id ON audit_events(run_id);
 )sql",
     },
+    {
+        .version = 4,
+        .name = "expand_audit_tables",
+        .sql = R"sql(
+CREATE TABLE IF NOT EXISTS instruments (
+    instrument_key TEXT PRIMARY KEY,
+    symbol TEXT NOT NULL,
+    exchange TEXT NOT NULL,
+    enabled INTEGER NOT NULL,
+    quantity INTEGER NOT NULL,
+    max_position_quantity INTEGER NOT NULL,
+    strategy_profile TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS quote_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    instrument_key TEXT NOT NULL,
+    ltp REAL NOT NULL,
+    stale INTEGER NOT NULL,
+    captured_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS candles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    instrument_key TEXT NOT NULL,
+    interval TEXT NOT NULL,
+    candle_at TEXT NOT NULL,
+    open REAL NOT NULL,
+    high REAL NOT NULL,
+    low REAL NOT NULL,
+    close REAL NOT NULL,
+    volume INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS decisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    instrument_key TEXT NOT NULL,
+    decision_type TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    quantity INTEGER NOT NULL,
+    price REAL,
+    reason TEXT NOT NULL,
+    source TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS api_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    endpoint TEXT NOT NULL,
+    http_status INTEGER,
+    retry_count INTEGER NOT NULL,
+    latency_ms INTEGER NOT NULL,
+    redacted_metadata TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_quote_snapshots_run_instrument_time
+    ON quote_snapshots(run_id, instrument_key, captured_at);
+CREATE INDEX IF NOT EXISTS idx_candles_instrument_interval_time
+    ON candles(instrument_key, interval, candle_at);
+CREATE INDEX IF NOT EXISTS idx_decisions_run_instrument_time
+    ON decisions(run_id, instrument_key, created_at);
+CREATE INDEX IF NOT EXISTS idx_api_events_run_category_time
+    ON api_events(run_id, category, created_at);
+)sql",
+    },
 };
 
 bool contains_version(const std::vector<int>& versions, int version) {
@@ -133,4 +205,3 @@ int apply_pending_migrations(MigrationStore& store) {
 }
 
 }  // namespace tradingbot::persistence
-
