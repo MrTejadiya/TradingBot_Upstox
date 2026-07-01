@@ -2,6 +2,7 @@
 
 #include "tradingbot/strategy/strategy.hpp"
 
+#include <algorithm>
 #include <sstream>
 
 namespace tradingbot::strategy {
@@ -16,6 +17,19 @@ std::optional<core::Money> current_price(const ExitEngineRequest& request) {
         return request.quote->ltp;
     }
     return std::nullopt;
+}
+
+core::Money high_water_mark(const ExitEngineRequest& request, std::optional<core::Money> price) {
+    auto high = request.holding.average_buy_price;
+    for (const auto& candle : request.candles) {
+        if (applies_to_instrument(candle.instrument_key, request.instrument.key)) {
+            high = std::max(high, candle.high > 0.0 ? candle.high : candle.close);
+        }
+    }
+    if (price) {
+        high = std::max(high, *price);
+    }
+    return high;
 }
 
 core::Decision build_exit_decision(const ExitEngineRequest& request, core::ExitReason reason,
@@ -127,6 +141,20 @@ ExitEngineResult ExitEngine::evaluate(const ExitEngineRequest& request) const {
         return result;
     }
 
+    if (price && request.instrument.trailing_stop_pct && *request.instrument.trailing_stop_pct > 0.0) {
+        const auto high = high_water_mark(request, price);
+        if (high > request.holding.average_buy_price) {
+            const auto trailing_stop = high * (1.0 - (*request.instrument.trailing_stop_pct / 100.0));
+            if (*price <= trailing_stop) {
+                std::ostringstream reason;
+                reason << "price " << *price << " breached trailing stop " << trailing_stop << " from high " << high;
+                result.exit_reason = core::ExitReason::TrailingStop;
+                result.decision = build_exit_decision(request, *result.exit_reason, reason.str(), 0.86, price);
+                return result;
+            }
+        }
+    }
+
     result.diagnostics.push_back("exit skipped: no exit rule matched");
     return result;
 }
@@ -154,4 +182,3 @@ std::string exit_reason_name(core::ExitReason reason) {
 }
 
 }  // namespace tradingbot::strategy
-

@@ -12,6 +12,7 @@ struct ExitEngineRequest {
     core::Instrument instrument;
     core::Holding holding;
     std::optional<core::QuoteSnapshot> quote;
+    std::vector<core::Candle> candles;
     std::vector<core::StrategySignal> strategy_signals;
     std::vector<core::RiskEvent> risk_events;
     bool emergency_exit{false};
@@ -32,4 +33,3 @@ public:
 std::string exit_reason_name(core::ExitReason reason);
 
 }  // namespace tradingbot::strategy
-

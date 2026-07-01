@@ -25,6 +25,7 @@ tradingbot::strategy::ExitEngineRequest base_request() {
         },
         .holding = {.instrument_key = {"NSE_EQ|INE002A01018"}, .quantity = 8, .average_buy_price = 100.0},
         .quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 100.0},
+        .candles = {{.instrument_key = {"NSE_EQ|INE002A01018"}, .high = 120.0, .close = 110.0}},
         .evaluated_at = tradingbot::core::Clock::now(),
     };
 }
@@ -102,6 +103,46 @@ void strategy_sell_signal_is_used_after_price_rules() {
     require(result.decision->quantity == 8, "strategy exit should still use full holding quantity");
 }
 
+void strategy_sell_signal_beats_trailing_stop() {
+    auto request = base_request();
+    request.instrument.manual_target_price = std::nullopt;
+    request.instrument.target_profit_pct = 50.0;
+    request.instrument.trailing_stop_pct = 4.0;
+    request.quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 115.0};
+    request.strategy_signals = {sell_signal(0.8, "strategy_exit")};
+
+    const auto result = tradingbot::strategy::ExitEngine{}.evaluate(request);
+
+    require(result.exit_reason == tradingbot::core::ExitReason::StrategySignal,
+            "strategy sell should beat trailing stop per SRS priority");
+}
+
+void trailing_stop_matches_after_strategy_signals() {
+    auto request = base_request();
+    request.instrument.manual_target_price = std::nullopt;
+    request.instrument.target_profit_pct = 50.0;
+    request.instrument.trailing_stop_pct = 4.0;
+    request.quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 115.0};
+
+    const auto result = tradingbot::strategy::ExitEngine{}.evaluate(request);
+
+    require(result.exit_reason == tradingbot::core::ExitReason::TrailingStop, "trailing stop should exit after reversal");
+    require(result.decision->source == "exit_engine:trailing_stop", "source should name trailing stop");
+}
+
+void trailing_stop_skips_without_favorable_move() {
+    auto request = base_request();
+    request.instrument.manual_target_price = std::nullopt;
+    request.instrument.target_profit_pct = 50.0;
+    request.instrument.trailing_stop_pct = 4.0;
+    request.candles = {{.instrument_key = {"NSE_EQ|INE002A01018"}, .high = 100.0, .close = 99.0}};
+    request.quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 99.0};
+
+    const auto result = tradingbot::strategy::ExitEngine{}.evaluate(request);
+
+    require(!result.decision.has_value(), "trailing stop should not exit before favorable move");
+}
+
 void no_exit_returns_diagnostic() {
     const auto result = tradingbot::strategy::ExitEngine{}.evaluate(base_request());
 
@@ -133,8 +174,10 @@ int main() {
     manual_target_beats_fixed_target();
     fixed_target_matches_when_manual_target_is_absent();
     strategy_sell_signal_is_used_after_price_rules();
+    strategy_sell_signal_beats_trailing_stop();
+    trailing_stop_matches_after_strategy_signals();
+    trailing_stop_skips_without_favorable_move();
     no_exit_returns_diagnostic();
     rejected_risk_event_triggers_emergency_exit();
     return 0;
 }
-
