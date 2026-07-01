@@ -45,6 +45,7 @@ add_executable(tradingbot_config_tests
 )
 
 target_link_libraries(tradingbot_config_tests PRIVATE tradingbot_core)
+target_compile_definitions(tradingbot_config_tests PRIVATE TRADINGBOT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
 add_test(NAME tradingbot_config_tests COMMAND tradingbot_config_tests)
 

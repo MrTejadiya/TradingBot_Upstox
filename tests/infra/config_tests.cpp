@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -216,6 +217,21 @@ void loads_config_from_file() {
     require(result.config.storage.sqlite_path == "bot.sqlite3", "file-loaded config should be parsed");
 }
 
+void published_example_config_loads() {
+    const auto path = std::filesystem::path{TRADINGBOT_SOURCE_DIR} / "config.example.json";
+    const auto result = tradingbot::infra::load_config_file(path.string());
+
+    if (!result.ok) {
+        for (const auto& error : result.errors) {
+            std::cerr << error << "\n";
+        }
+    }
+    require(result.ok, "published config.example.json should load");
+    require(result.config.live_scanner.minimum_score == 0.75, "example live scanner config should parse");
+    require(result.config.live_scanner.strategy_weights.at("macd_bullish_cross") == 1.3,
+            "example scanner weights should parse");
+}
+
 }  // namespace
 
 int main() {
@@ -228,5 +244,6 @@ int main() {
     allows_missing_live_scanner_section();
     rejects_invalid_json();
     loads_config_from_file();
+    published_example_config_loads();
     return 0;
 }
