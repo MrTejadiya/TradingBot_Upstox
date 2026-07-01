@@ -19,10 +19,13 @@ If Ninja is not available, omit `-G "Ninja"` and let CMake choose a local genera
 .\build\tradingbot_upstox.exe --mode dry-run
 .\build\tradingbot_upstox.exe --mode paper
 .\build\tradingbot_upstox.exe --mode show-orders
+.\build\tradingbot_upstox.exe --config config.example.json --mode show-orders
 ```
 
 `dry-run` is the default mode. `paper` uses local simulator/backtest components
 without broker order placement. `live` requires explicit live-trading gates.
+Pass `--config <path>` to load JSON configuration; explicit CLI flags such as
+`--mode` override config defaults.
 
 ## Configuration
 
@@ -81,9 +84,9 @@ The market quote service fetches LTP data through Upstox API V3 at
 `QuoteSnapshot`.
 
 Historical candles are fetched through the V3 historical candle endpoint and
-stored through a cache interface. The current implementation includes an
-in-memory cache for tests; the SQLite-backed cache belongs with the persistence
-storage work.
+stored through a cache interface. The current implementation includes both an
+in-memory cache for tests and a SQLite-backed cache for persisted candle
+history.
 
 The market feed layer currently provides a websocket-ready abstraction for LTP
 subscription payloads, quote message parsing, and disconnect notifications.
@@ -149,14 +152,29 @@ Order monitoring maps Upstox order-book statuses into terminal/non-terminal
 Runtime worker groups provide thread-safe task submission, drain/stop behavior,
 and exception capture for background processing.
 
-SQLite persistence starts with ordered, idempotent migrations for bot runs,
-orders, risk events, strategy signals, audit events, and lookup indexes.
+SQLite persistence uses ordered, idempotent migrations for bot runs, orders,
+risk events, strategy signals, decisions, quote snapshots, candles, API events,
+instruments, audit events, and lookup indexes.
 
 The persistence worker applies pending migrations and asynchronously writes
-orders, risk events, and audit events through a sink abstraction.
+orders, risk events, audit events, strategy signals, decisions, quote snapshots,
+candles, API events, and bot run lifecycle rows through a sink abstraction.
+
+When `storage.sqlite_path` is configured, the app runner opens the SQLite
+database, applies pending migrations, records a started bot-run row before
+configured non-reporting modes execute, and records a completed row after the
+run returns. The run row stores the mode and a stable hash of the loaded config
+file text so persisted records can be traced back to their runtime settings.
+
+On Windows, the build copies a compatible `sqlite3.dll` beside
+`tradingbot_upstox.exe` and the SQLite test binaries. SQLite is loaded at
+runtime so the application does not depend on a compiler-specific import
+library.
 
 The show-orders command renders order records in a stable table format and
-prints an explicit empty state when no orders are available.
+prints an explicit empty state when no orders are available. With
+`--config <path>` and `storage.sqlite_path` set, `show-orders` reads historical
+orders directly from SQLite without starting a bot run or placing broker orders.
 
 Dry-run integration coverage connects strategy signal generation, aggregation,
 risk approval, order queuing, dry-run dispatch, and persistence without broker calls.
