@@ -304,6 +304,14 @@ target_link_libraries(tradingbot_live_scanner_decision_pipeline_tests PRIVATE tr
 
 add_test(NAME tradingbot_live_scanner_decision_pipeline_tests COMMAND tradingbot_live_scanner_decision_pipeline_tests)
 
+add_executable(tradingbot_live_scanner_persistence_tests
+    scan/live_scanner_persistence_tests.cpp
+)
+
+target_link_libraries(tradingbot_live_scanner_persistence_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_live_scanner_persistence_tests COMMAND tradingbot_live_scanner_persistence_tests)
+
 add_executable(tradingbot_live_scanner_ranking_pipeline_tests
     scan/live_scanner_ranking_pipeline_tests.cpp
 )
