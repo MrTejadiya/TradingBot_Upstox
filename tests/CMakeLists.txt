@@ -262,6 +262,16 @@ target_link_libraries(tradingbot_sqlite_migrations_tests PRIVATE tradingbot_core
 
 add_test(NAME tradingbot_sqlite_migrations_tests COMMAND tradingbot_sqlite_migrations_tests)
 
+add_executable(tradingbot_sqlite_database_tests
+    persistence/sqlite_database_tests.cpp
+)
+
+target_link_libraries(tradingbot_sqlite_database_tests PRIVATE tradingbot_core)
+
+copy_sqlite_runtime(tradingbot_sqlite_database_tests)
+
+add_test(NAME tradingbot_sqlite_database_tests COMMAND tradingbot_sqlite_database_tests)
+
 add_executable(tradingbot_sqlite_time_tests
     persistence/sqlite_time_tests.cpp
 )

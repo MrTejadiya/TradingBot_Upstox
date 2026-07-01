@@ -12,6 +12,20 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(TRADINGBOT_BUILD_TESTS "Build TradingBot Upstox tests" ON)
 
+find_file(SQLite3_RUNTIME_LIBRARY
+    NAMES sqlite3.dll libsqlite3-0.dll
+    HINTS ENV SQLite3_ROOT
+    PATHS
+        "C:/Users/Ravi Kumar/Downloads/python-3.13.13-embed-amd64"
+        "C:/Users/Ravi Kumar/Downloads/python-3.10.1-embed-amd64"
+        C:/msys64/ucrt64
+    PATH_SUFFIXES bin
+)
+
+if(WIN32 AND NOT SQLite3_RUNTIME_LIBRARY)
+    message(FATAL_ERROR "SQLite3 runtime DLL was not found. Install SQLite3 or set SQLite3_ROOT.")
+endif()
+
 add_library(tradingbot_core
     src/core/domain.cpp
     src/app/cli.cpp
@@ -44,6 +58,7 @@ add_library(tradingbot_core
     src/persistence/persistence_worker.cpp
     src/persistence/quote_snapshot_mapper.cpp
     src/persistence/risk_event_mapper.cpp
+    src/persistence/sqlite_database.cpp
     src/persistence/sqlite_migrations.cpp
     src/persistence/sqlite_time.cpp
     src/persistence/strategy_signal_mapper.cpp
@@ -66,6 +81,16 @@ target_include_directories(tradingbot_core
 )
 
 target_compile_features(tradingbot_core PUBLIC cxx_std_20)
+
+function(copy_sqlite_runtime target_name)
+    if(WIN32 AND SQLite3_RUNTIME_LIBRARY)
+        add_custom_command(TARGET ${target_name} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${SQLite3_RUNTIME_LIBRARY}
+                    $<TARGET_FILE_DIR:${target_name}>
+        )
+    endif()
+endfunction()
 
 add_executable(tradingbot_upstox
     src/app/main.cpp
