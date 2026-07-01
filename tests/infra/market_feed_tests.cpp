@@ -1,5 +1,6 @@
 #include "tradingbot/infra/market_feed.hpp"
 
+#include <ctime>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -12,6 +13,21 @@ void require(bool condition, const std::string& message) {
         std::cerr << "FAILED: " << message << "\n";
         std::exit(1);
     }
+}
+
+std::time_t utc_epoch(int year, int month, int day, int hour, int minute, int second) {
+    std::tm utc{};
+    utc.tm_year = year - 1900;
+    utc.tm_mon = month - 1;
+    utc.tm_mday = day;
+    utc.tm_hour = hour;
+    utc.tm_min = minute;
+    utc.tm_sec = second;
+#ifdef _WIN32
+    return _mkgmtime(&utc);
+#else
+    return timegm(&utc);
+#endif
 }
 
 void builds_subscription_payload() {
@@ -28,12 +44,24 @@ void builds_subscription_payload() {
 void parses_quote_message() {
     tradingbot::core::QuoteSnapshot quote;
     const auto ok = tradingbot::infra::parse_market_feed_quote(
-        R"json({"instrument_key":"NSE_EQ|INE002A01018","ltp":303.9})json", quote);
+        R"json({"instrument_key":"NSE_EQ|INE002A01018","ltp":303.9,"timestamp":"2026-06-30T15:29:30+05:30"})json",
+        quote);
 
     require(ok, "quote message should parse");
     require(quote.instrument_key.value == "NSE_EQ|INE002A01018", "instrument key should parse");
     require(quote.ltp == 303.9, "ltp should parse");
+    require(tradingbot::core::Clock::to_time_t(quote.timestamp) == utc_epoch(2026, 6, 30, 9, 59, 30),
+            "timestamp should convert from +05:30 to UTC");
     require(!quote.stale, "parsed quote should not be stale");
+}
+
+void parses_quote_without_timestamp_using_parse_time() {
+    tradingbot::core::QuoteSnapshot quote;
+    const auto ok = tradingbot::infra::parse_market_feed_quote(
+        R"json({"instrument_key":"NSE_EQ|INE002A01018","ltp":303.9})json", quote);
+
+    require(ok, "quote without timestamp should parse");
+    require(quote.ltp == 303.9, "ltp should parse without timestamp");
 }
 
 void rejects_malformed_quote_message() {
@@ -41,6 +69,14 @@ void rejects_malformed_quote_message() {
     const auto ok = tradingbot::infra::parse_market_feed_quote(R"json({"instrument_key":"NSE_EQ|INE002A01018"})json", quote);
 
     require(!ok, "missing ltp should fail");
+}
+
+void rejects_malformed_quote_timestamp() {
+    tradingbot::core::QuoteSnapshot quote;
+    const auto ok = tradingbot::infra::parse_market_feed_quote(
+        R"json({"instrument_key":"NSE_EQ|INE002A01018","ltp":303.9,"timestamp":"bad-time"})json", quote);
+
+    require(!ok, "malformed timestamp should fail");
 }
 
 void invokes_quote_handler_for_valid_message() {
@@ -74,9 +110,10 @@ void invokes_status_handler_on_disconnect() {
 int main() {
     builds_subscription_payload();
     parses_quote_message();
+    parses_quote_without_timestamp_using_parse_time();
     rejects_malformed_quote_message();
+    rejects_malformed_quote_timestamp();
     invokes_quote_handler_for_valid_message();
     invokes_status_handler_on_disconnect();
     return 0;
 }
-
