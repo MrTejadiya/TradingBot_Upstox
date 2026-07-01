@@ -93,7 +93,13 @@ CREATE TABLE IF NOT EXISTS instruments (
     enabled INTEGER NOT NULL,
     quantity INTEGER NOT NULL,
     max_position_quantity INTEGER NOT NULL,
+    manual_buy_price REAL,
+    manual_target_price REAL,
+    stop_loss_pct REAL,
+    target_profit_pct REAL NOT NULL,
+    trailing_stop_pct REAL,
     strategy_profile TEXT,
+    notes TEXT,
     updated_at TEXT NOT NULL
 );
 

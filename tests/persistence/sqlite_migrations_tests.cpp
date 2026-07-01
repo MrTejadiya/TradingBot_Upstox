@@ -38,6 +38,13 @@ void expanded_schema_contains_audit_tables() {
     const auto& sql = tradingbot::persistence::sqlite_migrations().back().sql;
 
     require(sql.find("CREATE TABLE IF NOT EXISTS instruments") != std::string::npos, "instruments table should exist");
+    require(sql.find("manual_buy_price REAL") != std::string::npos, "instrument manual buy should be audited");
+    require(sql.find("manual_target_price REAL") != std::string::npos, "instrument manual target should be audited");
+    require(sql.find("stop_loss_pct REAL") != std::string::npos, "instrument stop loss should be audited");
+    require(sql.find("target_profit_pct REAL NOT NULL") != std::string::npos,
+            "instrument target profit should be audited");
+    require(sql.find("trailing_stop_pct REAL") != std::string::npos, "instrument trailing stop should be audited");
+    require(sql.find("notes TEXT") != std::string::npos, "instrument notes should be audited");
     require(sql.find("CREATE TABLE IF NOT EXISTS quote_snapshots") != std::string::npos,
             "quote snapshots table should exist");
     require(sql.find("CREATE TABLE IF NOT EXISTS candles") != std::string::npos, "candles table should exist");
