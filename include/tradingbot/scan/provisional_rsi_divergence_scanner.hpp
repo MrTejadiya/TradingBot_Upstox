@@ -46,4 +46,8 @@ private:
     ProvisionalRsiDivergenceConfig config_;
 };
 
+std::size_t owner_partition(const std::string& instrument_key, std::size_t partition_count);
+std::vector<std::vector<std::size_t>> partition_scan_inputs(const std::vector<ProvisionalScanInput>& inputs,
+                                                            std::size_t partition_count);
+
 }  // namespace tradingbot::scan

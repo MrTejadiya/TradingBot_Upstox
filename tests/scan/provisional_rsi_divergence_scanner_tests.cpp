@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -97,6 +98,40 @@ void reports_insufficient_candles() {
     require(result.diagnostic.find("insufficient") != std::string::npos, "diagnostic should explain shortage");
 }
 
+void assigns_same_instrument_key_to_same_owner_partition() {
+    const auto first = tradingbot::scan::owner_partition("NSE_EQ|INE002A01018", 10);
+    const auto second = tradingbot::scan::owner_partition("NSE_EQ|INE002A01018", 10);
+
+    require(first == second, "same instrument key should map to the same owner partition");
+    require(first < 10, "owner partition should be within worker range");
+}
+
+void partitions_inputs_by_instrument_owner() {
+    const auto partitions = tradingbot::scan::partition_scan_inputs({
+        {.instrument = instrument("NSE_EQ|SAME", "SAME_A")},
+        {.instrument = instrument("NSE_EQ|OTHER", "OTHER")},
+        {.instrument = instrument("NSE_EQ|SAME", "SAME_B")},
+    }, 4);
+    std::optional<std::size_t> first_bucket;
+    std::optional<std::size_t> third_bucket;
+
+    for (auto bucket = std::size_t{0}; bucket < partitions.size(); ++bucket) {
+        for (const auto input_index : partitions[bucket]) {
+            if (input_index == 0) {
+                first_bucket = bucket;
+            }
+            if (input_index == 2) {
+                third_bucket = bucket;
+            }
+        }
+    }
+
+    require(partitions.size() == 4, "partition count should match worker count");
+    require(first_bucket.has_value(), "first input should be assigned to a partition");
+    require(third_bucket.has_value(), "third input should be assigned to a partition");
+    require(first_bucket == third_bucket, "same instrument key should stay in one owner partition");
+}
+
 void scans_multiple_instruments_in_parallel_with_stable_order() {
     const auto bull_key = std::string{"NSE_EQ|BULL"};
     const auto bear_key = std::string{"NSE_EQ|BEAR"};
@@ -124,6 +159,8 @@ int main() {
     detects_bullish_divergence_with_provisional_candle();
     detects_bearish_divergence_from_closed_candles();
     reports_insufficient_candles();
+    assigns_same_instrument_key_to_same_owner_partition();
+    partitions_inputs_by_instrument_owner();
     scans_multiple_instruments_in_parallel_with_stable_order();
     return 0;
 }

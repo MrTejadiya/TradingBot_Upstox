@@ -4,7 +4,7 @@
 #include "tradingbot/strategy/indicators.hpp"
 
 #include <algorithm>
-#include <mutex>
+#include <cstdint>
 #include <optional>
 
 namespace tradingbot::scan {
@@ -88,6 +88,32 @@ bool has_bearish_divergence(const std::vector<double>& prices, const std::vector
 
 }  // namespace
 
+std::size_t owner_partition(const std::string& instrument_key, std::size_t partition_count) {
+    if (partition_count == 0) {
+        return 0;
+    }
+
+    auto hash = std::uint64_t{14695981039346656037ULL};
+    for (const auto ch : instrument_key) {
+        hash ^= static_cast<unsigned char>(ch);
+        hash *= 1099511628211ULL;
+    }
+    return static_cast<std::size_t>(hash % partition_count);
+}
+
+std::vector<std::vector<std::size_t>> partition_scan_inputs(const std::vector<ProvisionalScanInput>& inputs,
+                                                            std::size_t partition_count) {
+    if (partition_count == 0) {
+        partition_count = 1;
+    }
+
+    std::vector<std::vector<std::size_t>> partitions(partition_count);
+    for (auto index = std::size_t{0}; index < inputs.size(); ++index) {
+        partitions[owner_partition(inputs[index].instrument.key.value, partition_count)].push_back(index);
+    }
+    return partitions;
+}
+
 ProvisionalRsiDivergenceScanner::ProvisionalRsiDivergenceScanner(ProvisionalRsiDivergenceConfig config)
     : config_(config) {
     if (config_.worker_count == 0) {
@@ -137,13 +163,16 @@ std::vector<ProvisionalDivergenceResult> ProvisionalRsiDivergenceScanner::scan_p
     const std::vector<ProvisionalScanInput>& inputs, const LiveCandleAggregator& aggregator) const {
     std::vector<ProvisionalDivergenceResult> results(inputs.size());
     runtime::WorkerGroup workers(config_.worker_count);
-    std::mutex result_mutex;
+    const auto partitions = partition_scan_inputs(inputs, config_.worker_count);
 
-    for (auto index = std::size_t{0}; index < inputs.size(); ++index) {
-        workers.submit([&, index] {
-            auto result = scan_one(inputs[index], aggregator);
-            std::lock_guard lock(result_mutex);
-            results[index] = std::move(result);
+    for (const auto& partition : partitions) {
+        if (partition.empty()) {
+            continue;
+        }
+        workers.submit([&, partition] {
+            for (const auto index : partition) {
+                results[index] = scan_one(inputs[index], aggregator);
+            }
         });
     }
     workers.drain();
