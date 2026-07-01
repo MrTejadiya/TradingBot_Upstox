@@ -36,6 +36,16 @@ Version 1 uses JSON configuration. The loader validates these required sections:
 `app`, `upstox`, `input`, `market_data`, `strategies`, `exit_rules`, `risk`,
 `rate_limits`, `storage`, and `logging`.
 
+`live_scanner` is optional and controls the read-only live scanner pipeline.
+Set `worker_count` to `0` to use the scanner's CPU-core default. Set
+`partition_count` to `0` to use the engine default partitioning. RSI scanning
+uses `rsi_period` and `wing_size`; MACD scanning uses `macd_fast_period`,
+`macd_slow_period`, and `macd_signal_period`. `minimum_score` is the fail-closed
+candidate threshold, `top_n` limits ranked candidates when greater than zero,
+and `strategy_weights` ranks scanner signals such as `rsi_divergence` and
+`macd_bullish_cross`. The scanner runtime persists reviewable signals and
+selected decisions only; it does not place broker orders.
+
 `exit_rules.max_holding_duration_hours` configures the maximum holding-period
 exit rule. Set it to `0` only when that exit should be disabled by the caller.
 
