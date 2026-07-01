@@ -36,6 +36,7 @@ add_library(tradingbot_core
     src/paper/paper_portfolio_simulator.cpp
     src/persistence/order_history_mapper.cpp
     src/persistence/persistence_worker.cpp
+    src/persistence/risk_event_mapper.cpp
     src/persistence/sqlite_migrations.cpp
     src/runtime/worker_group.cpp
     src/strategy/advanced_buy_strategies.cpp
