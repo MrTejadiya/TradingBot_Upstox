@@ -34,6 +34,9 @@ exit rule. Set it to `0` only when that exit should be disabled by the caller.
 `risk.max_order_value` caps the value of any individual buy or sell decision
 before order dispatch.
 
+`risk.max_daily_traded_value` caps the projected total traded value for the
+trading day when the caller supplies the current daily traded value.
+
 Start from `config.example.json` and provide access tokens through the configured
 environment variable, not in the config file.
 

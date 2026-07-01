@@ -90,6 +90,13 @@ core::RiskEvent RiskManager::evaluate(const RiskManagerRequest& request) const {
                               "decision value exceeds configured max order value");
         }
     }
+    if (request.max_daily_traded_value > 0.0) {
+        const auto value = decision_value(request);
+        if (value && request.traded_value_today + *value > request.max_daily_traded_value) {
+            return risk_event(request, core::RiskDecision::Rejected, "MAX_DAILY_TRADED_VALUE_EXCEEDED",
+                              "decision value would exceed configured max daily traded value");
+        }
+    }
 
     if (request.decision.type == core::DecisionType::Buy) {
         if (!request.decision.price || *request.decision.price <= 0.0) {

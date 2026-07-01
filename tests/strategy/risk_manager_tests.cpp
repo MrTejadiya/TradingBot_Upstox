@@ -43,6 +43,8 @@ tradingbot::strategy::RiskManagerRequest base_request() {
         .portfolio = {.available_funds = 1000.0,
                       .holdings = {{.instrument_key = {"NSE_EQ|INE002A01018"}, .quantity = 5, .average_buy_price = 90.0}}},
         .max_order_value = 2000.0,
+        .traded_value_today = 1000.0,
+        .max_daily_traded_value = 5000.0,
         .evaluated_at = tradingbot::core::Clock::now(),
     };
 }
@@ -103,6 +105,27 @@ void rejects_order_value_above_limit() {
     require(event.reason_code == "MAX_ORDER_VALUE_EXCEEDED", "order value above limit should reject");
 }
 
+void approves_order_value_within_daily_limit() {
+    auto request = base_request();
+    request.traded_value_today = 4600.0;
+    request.max_daily_traded_value = 5000.0;
+
+    const auto event = tradingbot::strategy::RiskManager{}.evaluate(request);
+
+    require(event.decision == tradingbot::core::RiskDecision::Approved, "daily traded value below limit should approve");
+}
+
+void rejects_projected_daily_traded_value_above_limit() {
+    auto request = base_request();
+    request.traded_value_today = 4800.0;
+    request.max_daily_traded_value = 5000.0;
+
+    const auto event = tradingbot::strategy::RiskManager{}.evaluate(request);
+
+    require(event.reason_code == "MAX_DAILY_TRADED_VALUE_EXCEEDED",
+            "projected daily traded value above limit should reject");
+}
+
 void approves_valid_sell_against_holding() {
     auto request = base_request();
     request.decision.type = tradingbot::core::DecisionType::Sell;
@@ -142,6 +165,8 @@ int main() {
     rejects_insufficient_funds();
     rejects_quantity_above_limit();
     rejects_order_value_above_limit();
+    approves_order_value_within_daily_limit();
+    rejects_projected_daily_traded_value_above_limit();
     approves_valid_sell_against_holding();
     rejects_sell_above_holding();
     rejects_hold_decision();
