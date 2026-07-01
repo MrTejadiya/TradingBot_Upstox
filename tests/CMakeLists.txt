@@ -270,6 +270,14 @@ target_link_libraries(tradingbot_api_event_mapper_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_api_event_mapper_tests COMMAND tradingbot_api_event_mapper_tests)
 
+add_executable(tradingbot_bot_run_mapper_tests
+    persistence/bot_run_mapper_tests.cpp
+)
+
+target_link_libraries(tradingbot_bot_run_mapper_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_bot_run_mapper_tests COMMAND tradingbot_bot_run_mapper_tests)
+
 add_executable(tradingbot_candle_mapper_tests
     persistence/candle_mapper_tests.cpp
 )
