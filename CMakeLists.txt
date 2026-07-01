@@ -80,6 +80,7 @@ add_library(tradingbot_core
     src/strategy/kill_switch.cpp
     src/strategy/market_session.cpp
     src/strategy/risk_manager.cpp
+    src/strategy/scanner_signal_ranker.cpp
     src/strategy/sell_strategies.cpp
     src/strategy/signal_aggregation.cpp
     src/strategy/strategy.cpp
