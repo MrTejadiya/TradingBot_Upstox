@@ -2,11 +2,14 @@
 
 #include "tradingbot/app/cli.hpp"
 #include "tradingbot/infra/config.hpp"
+#include "tradingbot/infra/instrument_csv.hpp"
 #include "tradingbot/persistence/sqlite_database.hpp"
+#include "tradingbot/persistence/sqlite_instrument_store.hpp"
 #include "tradingbot/persistence/sqlite_order_history_reader.hpp"
 #include "tradingbot/persistence/sqlite_persistence_sink.hpp"
 
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -63,6 +66,34 @@ std::string run_id_for(core::TimePoint started_at, Mode mode) {
     return to_string(mode) + "-" + std::to_string(millis);
 }
 
+std::filesystem::path resolve_configured_path(const std::string& config_path, const std::string& configured_path) {
+    std::filesystem::path path{configured_path};
+    if (path.is_absolute()) {
+        return path;
+    }
+    return std::filesystem::path{config_path}.parent_path() / path;
+}
+
+bool persist_configured_instruments(const std::shared_ptr<persistence::SqliteDatabase>& database,
+                                    const std::string& config_path, const infra::BotConfig& config,
+                                    std::ostream& err) {
+    const auto instruments_path = resolve_configured_path(config_path, config.input.instruments_csv);
+    const auto loaded = infra::load_instruments_csv_file(instruments_path.string());
+    if (!loaded.ok) {
+        for (const auto& error : loaded.errors) {
+            err << error << "\n";
+        }
+        if (loaded.errors.empty()) {
+            err << "failed to load instrument CSV\n";
+        }
+        return false;
+    }
+
+    persistence::SqliteInstrumentStore store(database);
+    store.upsert_all(loaded.instruments);
+    return true;
+}
+
 }  // namespace
 
 int run_app(const std::vector<std::string>& args, std::ostream& out, std::ostream& err) {
@@ -99,6 +130,10 @@ int run_app(const std::vector<std::string>& args, std::ostream& out, std::ostrea
         persistence::SqliteMigrationStore migrations(database);
         persistence::apply_pending_migrations(migrations);
         if (options.mode != Mode::ShowOrders) {
+            if (!persist_configured_instruments(database, options.config_path, config.config, err)) {
+                return 2;
+            }
+
             const auto started_at = core::Clock::now();
             const auto run_id = run_id_for(started_at, options.mode);
             persistence::SqlitePersistenceSink sink(database, run_id);

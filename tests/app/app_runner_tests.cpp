@@ -39,7 +39,8 @@ std::string json_path(const std::filesystem::path& path) {
     return value;
 }
 
-std::string valid_config_json(const std::filesystem::path& sqlite_path, const std::string& mode = "show-orders") {
+std::string valid_config_json(const std::filesystem::path& sqlite_path, const std::string& mode = "show-orders",
+                              const std::string& instruments_csv = "instruments.csv") {
     return R"json({
         "app": {
             "mode": ")json" + mode +
@@ -51,7 +52,8 @@ std::string valid_config_json(const std::filesystem::path& sqlite_path, const st
             "force_ipv4": true
         },
         "input": {
-            "instruments_csv": "instruments.csv"
+            "instruments_csv": ")json" +
+           instruments_csv + R"json("
         },
         "market_data": {
             "candle_intervals": ["1d"],
@@ -90,6 +92,12 @@ std::string valid_config_json(const std::filesystem::path& sqlite_path, const st
 void write_config(const std::filesystem::path& path, const std::string& text) {
     std::ofstream file(path);
     file << text;
+}
+
+void write_instruments_csv(const std::filesystem::path& path) {
+    std::ofstream file(path);
+    file << "instrument_key,symbol,enabled,quantity,max_position_qty,target_profit_pct,notes\n";
+    file << "NSE_EQ|INE002A01018,RELIANCE,true,2,10,10.0,configured instrument\n";
 }
 
 tradingbot::core::OrderRecord order_record() {
@@ -163,7 +171,9 @@ void configured_show_orders_does_not_create_bot_run() {
 void configured_dry_run_records_bot_run_lifecycle() {
     const auto db_path = test_path("tradingbot_app_runner_dry_run_lifecycle.sqlite3");
     const auto config_path = test_path("tradingbot_app_runner_dry_run_lifecycle.json");
-    write_config(config_path, valid_config_json(db_path, "dry-run"));
+    const auto instruments_path = test_path("tradingbot_app_runner_instruments.csv");
+    write_instruments_csv(instruments_path);
+    write_config(config_path, valid_config_json(db_path, "dry-run", instruments_path.filename().string()));
 
     std::ostringstream out;
     std::ostringstream err;
@@ -180,6 +190,55 @@ void configured_dry_run_records_bot_run_lifecycle() {
                 "dry-run should store deterministic config hash");
     }
 
+    std::filesystem::remove(instruments_path);
+    std::filesystem::remove(config_path);
+    std::filesystem::remove(db_path);
+}
+
+void configured_dry_run_persists_instruments_relative_to_config() {
+    const auto db_path = test_path("tradingbot_app_runner_instrument_persistence.sqlite3");
+    const auto config_dir = std::filesystem::temp_directory_path();
+    const auto config_path = config_dir / "tradingbot_app_runner_relative_config.json";
+    const auto instruments_path = config_dir / "tradingbot_app_runner_relative_instruments.csv";
+    write_instruments_csv(instruments_path);
+    write_config(config_path, valid_config_json(db_path, "dry-run", instruments_path.filename().string()));
+
+    std::ostringstream out;
+    std::ostringstream err;
+    const auto code = tradingbot::app::run_app({"--config", config_path.string()}, out, err);
+
+    require(code == 0, "configured dry-run with relative instrument CSV should run");
+    {
+        auto database = std::make_shared<tradingbot::persistence::SqliteDatabase>(db_path.string());
+        require(count_rows(*database, "instruments") == 1, "dry-run should persist configured instruments");
+        require(count_rows(*database, "instruments", " WHERE symbol = 'RELIANCE' AND notes = 'configured instrument'") ==
+                    1,
+                "persisted instrument fields should load from CSV");
+    }
+
+    std::filesystem::remove(instruments_path);
+    std::filesystem::remove(config_path);
+    std::filesystem::remove(db_path);
+}
+
+void configured_dry_run_fails_when_instrument_csv_is_missing() {
+    const auto db_path = test_path("tradingbot_app_runner_missing_instruments.sqlite3");
+    const auto config_path = test_path("tradingbot_app_runner_missing_instruments.json");
+    write_config(config_path, valid_config_json(db_path, "dry-run", "missing-instruments.csv"));
+
+    std::ostringstream out;
+    std::ostringstream err;
+    const auto code = tradingbot::app::run_app({"--config", config_path.string()}, out, err);
+
+    require(code != 0, "missing instrument CSV should fail configured dry-run");
+    require(out.str().empty(), "missing instrument CSV should not write normal output");
+    require(err.str().find("unable to open instrument CSV file") != std::string::npos,
+            "missing instrument CSV error should be clear");
+    {
+        auto database = std::make_shared<tradingbot::persistence::SqliteDatabase>(db_path.string());
+        require(count_rows(*database, "bot_runs") == 0, "failed startup should not create bot run rows");
+    }
+
     std::filesystem::remove(config_path);
     std::filesystem::remove(db_path);
 }
@@ -187,7 +246,9 @@ void configured_dry_run_records_bot_run_lifecycle() {
 void cli_mode_overrides_config_mode() {
     const auto db_path = test_path("tradingbot_app_runner_override.sqlite3");
     const auto config_path = test_path("tradingbot_app_runner_override.json");
-    write_config(config_path, valid_config_json(db_path, "show-orders"));
+    const auto instruments_path = test_path("tradingbot_app_runner_override_instruments.csv");
+    write_instruments_csv(instruments_path);
+    write_config(config_path, valid_config_json(db_path, "show-orders", instruments_path.filename().string()));
 
     std::ostringstream out;
     std::ostringstream err;
@@ -197,6 +258,7 @@ void cli_mode_overrides_config_mode() {
     require(out.str().find("dry-run mode selected") != std::string::npos, "CLI mode should override config mode");
     require(out.str().find("No orders found") == std::string::npos, "show-orders should not run when overridden");
 
+    std::filesystem::remove(instruments_path);
     std::filesystem::remove(config_path);
     std::filesystem::remove(db_path);
 }
@@ -217,6 +279,8 @@ int main() {
     configured_show_orders_reads_sqlite_history();
     configured_show_orders_does_not_create_bot_run();
     configured_dry_run_records_bot_run_lifecycle();
+    configured_dry_run_persists_instruments_relative_to_config();
+    configured_dry_run_fails_when_instrument_csv_is_missing();
     cli_mode_overrides_config_mode();
     config_load_errors_are_reported();
     return 0;
