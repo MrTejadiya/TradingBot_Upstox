@@ -288,6 +288,14 @@ target_link_libraries(tradingbot_live_rsi_divergence_engine_tests PRIVATE tradin
 
 add_test(NAME tradingbot_live_rsi_divergence_engine_tests COMMAND tradingbot_live_rsi_divergence_engine_tests)
 
+add_executable(tradingbot_live_scanner_ranking_pipeline_tests
+    scan/live_scanner_ranking_pipeline_tests.cpp
+)
+
+target_link_libraries(tradingbot_live_scanner_ranking_pipeline_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_live_scanner_ranking_pipeline_tests COMMAND tradingbot_live_scanner_ranking_pipeline_tests)
+
 add_executable(tradingbot_macd_crossover_signal_scanner_tests
     scan/macd_crossover_signal_scanner_tests.cpp
 )
