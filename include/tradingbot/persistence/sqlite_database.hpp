@@ -3,6 +3,7 @@
 #include "tradingbot/persistence/sqlite_migrations.hpp"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -24,6 +25,7 @@ public:
     const std::string& error() const;
     bool exec(const std::string& sql);
     std::vector<int> query_ints(const std::string& sql) const;
+    std::vector<std::vector<std::optional<std::string>>> query_rows(const std::string& sql) const;
     bool table_exists(const std::string& table_name) const;
 
 private:

@@ -30,6 +30,9 @@ struct SqliteApi {
     using PrepareFn = int (*)(sqlite3*, const char*, int, sqlite3_stmt**, const char**);
     using StepFn = int (*)(sqlite3_stmt*);
     using ColumnIntFn = int (*)(sqlite3_stmt*, int);
+    using ColumnTextFn = const unsigned char* (*)(sqlite3_stmt*, int);
+    using ColumnCountFn = int (*)(sqlite3_stmt*);
+    using ColumnTypeFn = int (*)(sqlite3_stmt*, int);
     using FinalizeFn = int (*)(sqlite3_stmt*);
 
     OpenFn open{nullptr};
@@ -40,6 +43,9 @@ struct SqliteApi {
     PrepareFn prepare_v2{nullptr};
     StepFn step{nullptr};
     ColumnIntFn column_int{nullptr};
+    ColumnTextFn column_text{nullptr};
+    ColumnCountFn column_count{nullptr};
+    ColumnTypeFn column_type{nullptr};
     FinalizeFn finalize{nullptr};
     std::string error;
 };
@@ -75,6 +81,9 @@ SqliteApi& sqlite_api() {
             !load_symbol(module, "sqlite3_prepare_v2", loaded.prepare_v2, loaded.error) ||
             !load_symbol(module, "sqlite3_step", loaded.step, loaded.error) ||
             !load_symbol(module, "sqlite3_column_int", loaded.column_int, loaded.error) ||
+            !load_symbol(module, "sqlite3_column_text", loaded.column_text, loaded.error) ||
+            !load_symbol(module, "sqlite3_column_count", loaded.column_count, loaded.error) ||
+            !load_symbol(module, "sqlite3_column_type", loaded.column_type, loaded.error) ||
             !load_symbol(module, "sqlite3_finalize", loaded.finalize, loaded.error)) {
             return loaded;
         }
@@ -201,6 +210,48 @@ bool SqliteDatabase::table_exists(const std::string& table_name) const {
     const auto values = query_ints("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = " +
                                   quote_sql_text(table_name) + ";");
     return !values.empty() && values.front() > 0;
+}
+
+std::vector<std::vector<std::optional<std::string>>> SqliteDatabase::query_rows(const std::string& sql) const {
+    if (db_ == nullptr) {
+        throw std::runtime_error("SQLite database is not open");
+    }
+
+    const auto& sqlite = sqlite_api();
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite.prepare_v2(db_, sql.c_str(), -1, &statement, nullptr) != kSqliteOk) {
+        throw std::runtime_error(sqlite.errmsg(db_));
+    }
+
+    std::vector<std::vector<std::optional<std::string>>> rows;
+    while (true) {
+        const auto result = sqlite.step(statement);
+        if (result == kSqliteRow) {
+            std::vector<std::optional<std::string>> row;
+            const auto column_count = sqlite.column_count(statement);
+            row.reserve(static_cast<std::size_t>(column_count));
+            for (auto column = 0; column < column_count; ++column) {
+                if (sqlite.column_type(statement, column) == 5) {
+                    row.push_back(std::nullopt);
+                    continue;
+                }
+                const auto* text = sqlite.column_text(statement, column);
+                row.push_back(text == nullptr ? std::optional<std::string>{} :
+                                                std::optional<std::string>{reinterpret_cast<const char*>(text)});
+            }
+            rows.push_back(std::move(row));
+            continue;
+        }
+        if (result == kSqliteDone) {
+            break;
+        }
+        const std::string error = sqlite.errmsg(db_);
+        sqlite.finalize(statement);
+        throw std::runtime_error(error);
+    }
+
+    sqlite.finalize(statement);
+    return rows;
 }
 
 SqliteMigrationStore::SqliteMigrationStore(std::shared_ptr<SqliteDatabase> database) : database_(std::move(database)) {
