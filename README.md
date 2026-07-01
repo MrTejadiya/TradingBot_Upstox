@@ -130,6 +130,10 @@ retry-after feedback and callback execution only when capacity is available.
 The dry-run order dispatcher records simulated accepted/rejected order records
 with deterministic dry-run IDs and no broker API calls.
 
+The paper portfolio simulator applies local filled order records to cash and
+holdings, then reports realized and unrealized P&L from supplied quotes without
+broker API calls.
+
 Live order placement targets Upstox V3 `/v3/order/place` only after explicit
 live-trading, risk, market-session, and rate-limit safety gates pass.
 
