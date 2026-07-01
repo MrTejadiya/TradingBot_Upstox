@@ -12,6 +12,7 @@ class SqlitePersistenceSink final : public PersistenceSink {
 public:
     SqlitePersistenceSink(std::shared_ptr<SqliteDatabase> database, std::string run_id);
 
+    void save_bot_run(const core::BotRun& run);
     void save_order(const core::OrderRecord& order) override;
     void save_risk_event(const core::RiskEvent& event) override;
     void save_audit_event(const AuditEvent& event) override;

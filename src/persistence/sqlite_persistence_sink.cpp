@@ -2,6 +2,7 @@
 
 #include "tradingbot/persistence/api_event_mapper.hpp"
 #include "tradingbot/persistence/audit_event_mapper.hpp"
+#include "tradingbot/persistence/bot_run_mapper.hpp"
 #include "tradingbot/persistence/candle_mapper.hpp"
 #include "tradingbot/persistence/decision_mapper.hpp"
 #include "tradingbot/persistence/order_history_mapper.hpp"
@@ -42,6 +43,13 @@ std::string sql_optional_money(std::optional<core::Money> value) {
     return out.str();
 }
 
+std::string sql_optional_timestamp(std::optional<core::TimePoint> value) {
+    if (!value) {
+        return "NULL";
+    }
+    return sql_timestamp(*value);
+}
+
 }  // namespace
 
 SqlitePersistenceSink::SqlitePersistenceSink(std::shared_ptr<SqliteDatabase> database, std::string run_id)
@@ -58,6 +66,14 @@ void SqlitePersistenceSink::exec_or_throw(const std::string& sql) {
     if (!database_->exec(sql)) {
         throw std::runtime_error(database_->error());
     }
+}
+
+void SqlitePersistenceSink::save_bot_run(const core::BotRun& run) {
+    const auto row = map_bot_run_to_stored_row(run);
+    exec_or_throw("INSERT OR REPLACE INTO bot_runs(run_id, started_at, ended_at, mode, config_hash) VALUES(" +
+                  sql_text(row.run_id) + ", " + sql_timestamp(row.started_at) + ", " +
+                  sql_optional_timestamp(row.ended_at) + ", " + sql_text(row.mode) + ", " +
+                  sql_text(row.config_hash) + ");");
 }
 
 void SqlitePersistenceSink::save_order(const core::OrderRecord& order) {

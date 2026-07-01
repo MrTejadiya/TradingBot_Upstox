@@ -30,6 +30,14 @@ int count_rows(const tradingbot::persistence::SqliteDatabase& database, const st
     return values.empty() ? 0 : values.front();
 }
 
+std::string first_text(const tradingbot::persistence::SqliteDatabase& database, const std::string& sql) {
+    const auto rows = database.query_rows(sql);
+    if (rows.empty() || rows.front().empty() || !rows.front().front()) {
+        return "";
+    }
+    return *rows.front().front();
+}
+
 tradingbot::core::TimePoint at(int seconds) {
     return tradingbot::core::TimePoint{std::chrono::seconds{seconds}};
 }
@@ -51,6 +59,41 @@ tradingbot::core::OrderRecord order() {
         .filled_quantity = 0,
         .updated_at = at(1),
     };
+}
+
+void writes_started_and_completed_bot_runs_to_sqlite() {
+    const auto path = test_db_path("tradingbot_sqlite_persistence_sink_bot_run_test.sqlite3");
+    {
+        auto database = std::make_shared<tradingbot::persistence::SqliteDatabase>(path.string());
+        tradingbot::persistence::SqliteMigrationStore migrations(database);
+        tradingbot::persistence::apply_pending_migrations(migrations);
+        tradingbot::persistence::SqlitePersistenceSink sink(database, "run-1");
+
+        sink.save_bot_run({
+            .run_id = "run-1",
+            .started_at = at(1),
+            .mode = "dry-run",
+            .config_hash = "sha256:abc123",
+        });
+
+        require(count_rows(*database, "bot_runs", " WHERE run_id = 'run-1'") == 1, "started bot run should persist");
+        require(first_text(*database, "SELECT ended_at FROM bot_runs WHERE run_id = 'run-1';").empty(),
+                "running bot run should store null ended_at");
+
+        sink.save_bot_run({
+            .run_id = "run-1",
+            .started_at = at(1),
+            .ended_at = at(2),
+            .mode = "dry-run",
+            .config_hash = "sha256:abc123",
+        });
+
+        require(count_rows(*database, "bot_runs", " WHERE run_id = 'run-1'") == 1, "bot run should update in place");
+        require(first_text(*database, "SELECT ended_at FROM bot_runs WHERE run_id = 'run-1';") ==
+                    "1970-01-01T00:00:02Z",
+                "completed bot run should store ended_at");
+    }
+    std::filesystem::remove(path);
 }
 
 void writes_all_worker_events_to_sqlite() {
@@ -142,6 +185,7 @@ void writes_all_worker_events_to_sqlite() {
 }  // namespace
 
 int main() {
+    writes_started_and_completed_bot_runs_to_sqlite();
     writes_all_worker_events_to_sqlite();
     return 0;
 }
