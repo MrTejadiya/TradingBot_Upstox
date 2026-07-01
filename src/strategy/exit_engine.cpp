@@ -14,7 +14,7 @@ bool applies_to_instrument(const core::InstrumentKey& left, const core::Instrume
 }
 
 std::optional<core::Money> current_price(const ExitEngineRequest& request) {
-    if (request.quote && request.quote->ltp > 0.0 && !request.quote->stale) {
+    if (request.quote && is_usable_quote(*request.quote, request.evaluated_at)) {
         return request.quote->ltp;
     }
     return std::nullopt;

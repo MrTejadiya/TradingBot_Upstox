@@ -97,6 +97,21 @@ void manual_target_beats_fixed_target() {
     require(result.decision->price == 116.0, "decision price should use fresh quote");
 }
 
+void stale_quote_does_not_trigger_target_exit() {
+    auto request = base_request();
+    request.instrument.manual_target_price = 110.0;
+    request.quote = tradingbot::core::QuoteSnapshot{
+        .instrument_key = {"NSE_EQ|INE002A01018"},
+        .timestamp = request.evaluated_at - std::chrono::minutes{6},
+        .ltp = 116.0,
+    };
+
+    const auto result = tradingbot::strategy::ExitEngine{}.evaluate(request);
+
+    require(!result.decision.has_value(), "old quote should not trigger target exit");
+    require(!result.diagnostics.empty(), "stale quote skip should include diagnostic");
+}
+
 void fixed_target_matches_when_manual_target_is_absent() {
     auto request = base_request();
     request.instrument.manual_target_price = std::nullopt;
@@ -270,6 +285,7 @@ int main() {
     emergency_risk_has_highest_priority();
     stop_loss_beats_manual_target_when_both_match();
     manual_target_beats_fixed_target();
+    stale_quote_does_not_trigger_target_exit();
     fixed_target_matches_when_manual_target_is_absent();
     strategy_sell_signal_is_used_after_price_rules();
     fixed_target_beats_strategy_target();
