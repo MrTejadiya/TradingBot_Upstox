@@ -27,6 +27,7 @@ add_library(tradingbot_core
     src/infra/upstox_api_client.cpp
     src/strategy/advanced_buy_strategies.cpp
     src/strategy/buy_strategies.cpp
+    src/strategy/exit_engine.cpp
     src/strategy/indicators.cpp
     src/strategy/sell_strategies.cpp
     src/strategy/signal_aggregation.cpp

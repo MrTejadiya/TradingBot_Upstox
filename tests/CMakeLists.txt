@@ -141,3 +141,11 @@ add_executable(tradingbot_signal_aggregation_tests
 target_link_libraries(tradingbot_signal_aggregation_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_signal_aggregation_tests COMMAND tradingbot_signal_aggregation_tests)
+
+add_executable(tradingbot_exit_engine_tests
+    strategy/exit_engine_tests.cpp
+)
+
+target_link_libraries(tradingbot_exit_engine_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_exit_engine_tests COMMAND tradingbot_exit_engine_tests)

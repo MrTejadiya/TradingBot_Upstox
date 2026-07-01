@@ -85,3 +85,7 @@ using current holdings for sell quantity and average buy price thresholds.
 
 Signal aggregation converts validated strategy signals into decisions using
 first-actionable, highest-confidence, or majority-vote modes.
+
+The exit engine evaluates sell exits in deterministic priority order:
+emergency risk, stop loss, manual target, fixed profit target, then strategy
+sell signals.
