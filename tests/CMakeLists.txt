@@ -262,6 +262,14 @@ target_link_libraries(tradingbot_sqlite_migrations_tests PRIVATE tradingbot_core
 
 add_test(NAME tradingbot_sqlite_migrations_tests COMMAND tradingbot_sqlite_migrations_tests)
 
+add_executable(tradingbot_audit_event_mapper_tests
+    persistence/audit_event_mapper_tests.cpp
+)
+
+target_link_libraries(tradingbot_audit_event_mapper_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_audit_event_mapper_tests COMMAND tradingbot_audit_event_mapper_tests)
+
 add_executable(tradingbot_api_event_mapper_tests
     persistence/api_event_mapper_tests.cpp
 )

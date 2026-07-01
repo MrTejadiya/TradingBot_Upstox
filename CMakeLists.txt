@@ -34,6 +34,7 @@ add_library(tradingbot_core
     src/order/rate_limited_executor.cpp
     src/paper/backtest_runner.cpp
     src/paper/paper_portfolio_simulator.cpp
+    src/persistence/audit_event_mapper.cpp
     src/persistence/api_event_mapper.cpp
     src/persistence/bot_run_mapper.cpp
     src/persistence/candle_mapper.cpp
