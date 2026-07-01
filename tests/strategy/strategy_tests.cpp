@@ -1,5 +1,6 @@
 #include "tradingbot/strategy/strategy.hpp"
 
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -74,6 +75,19 @@ void context_helpers_report_candle_availability() {
     require(tradingbot::strategy::latest_close(context) == 102.5, "latest close should return trailing candle close");
 }
 
+void quote_freshness_rejects_bad_or_old_quotes() {
+    const auto now = tradingbot::core::Clock::now();
+
+    require(tradingbot::strategy::is_usable_quote({.ltp = 100.0}, now), "untimestamped positive quote should be usable");
+    require(!tradingbot::strategy::is_usable_quote({.ltp = 0.0}, now), "non-positive quote should not be usable");
+    require(!tradingbot::strategy::is_usable_quote({.ltp = 100.0, .stale = true}, now),
+            "explicitly stale quote should not be usable");
+    require(tradingbot::strategy::is_usable_quote({.timestamp = now - std::chrono::minutes{4}, .ltp = 100.0}, now),
+            "recent timestamped quote should be usable");
+    require(!tradingbot::strategy::is_usable_quote({.timestamp = now - std::chrono::minutes{6}, .ltp = 100.0}, now),
+            "old timestamped quote should not be usable");
+}
+
 void signal_validation_rejects_unsafe_signals() {
     tradingbot::core::StrategySignal signal{
         .instrument_key = {"bad-key"},
@@ -94,7 +108,7 @@ int main() {
     noop_strategy_returns_no_signals();
     strategy_interface_supports_actionable_signals();
     context_helpers_report_candle_availability();
+    quote_freshness_rejects_bad_or_old_quotes();
     signal_validation_rejects_unsafe_signals();
     return 0;
 }
-

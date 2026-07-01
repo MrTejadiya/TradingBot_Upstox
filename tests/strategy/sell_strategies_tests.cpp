@@ -1,5 +1,6 @@
 #include "tradingbot/strategy/sell_strategies.hpp"
 
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -53,6 +54,21 @@ void target_profit_uses_default_profit_percentage() {
     const auto evaluation = tradingbot::strategy::TargetProfitSellStrategy{}.evaluate(context);
 
     require(evaluation.signals.size() == 1, "target sell should use target profit percent");
+}
+
+void target_profit_falls_back_to_latest_close_when_quote_is_old() {
+    auto context = base_context();
+    context.instrument.manual_target_price = 99.0;
+    context.quote = tradingbot::core::QuoteSnapshot{
+        .instrument_key = {"NSE_EQ|INE002A01018"},
+        .timestamp = context.evaluated_at - std::chrono::minutes{6},
+        .ltp = 90.0,
+    };
+
+    const auto evaluation = tradingbot::strategy::TargetProfitSellStrategy{}.evaluate(context);
+
+    require(evaluation.signals.size() == 1, "target sell should use latest close when quote is old");
+    require(evaluation.signals.front().suggested_entry_price == 100.0, "old quote should fall back to latest close");
 }
 
 void stop_loss_emits_sell_signal_when_price_breaches_stop() {
@@ -130,6 +146,7 @@ void trailing_stop_skips_when_not_configured() {
 int main() {
     target_profit_emits_sell_signal_when_target_is_reached();
     target_profit_uses_default_profit_percentage();
+    target_profit_falls_back_to_latest_close_when_quote_is_old();
     stop_loss_emits_sell_signal_when_price_breaches_stop();
     sell_strategies_skip_without_holding();
     stop_loss_skips_when_not_configured();

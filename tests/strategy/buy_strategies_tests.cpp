@@ -1,5 +1,6 @@
 #include "tradingbot/strategy/buy_strategies.hpp"
 
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -72,6 +73,20 @@ void manual_buy_skips_when_price_is_too_high() {
     require(!evaluation.diagnostics.empty(), "manual buy skip should include diagnostic");
 }
 
+void manual_buy_falls_back_to_latest_close_when_quote_is_old() {
+    auto context = base_context();
+    context.quote = tradingbot::core::QuoteSnapshot{
+        .instrument_key = {"NSE_EQ|INE002A01018"},
+        .timestamp = context.evaluated_at - std::chrono::minutes{6},
+        .ltp = 150.0,
+    };
+
+    const auto evaluation = tradingbot::strategy::ManualBuyStrategy{}.evaluate(context);
+
+    require(evaluation.signals.size() == 1, "manual buy should use latest close when quote is old");
+    require(evaluation.signals.front().suggested_entry_price == 101.0, "old quote should fall back to latest close");
+}
+
 void rsi_oversold_emits_signal_when_threshold_is_met() {
     auto context = base_context();
     context.instrument.manual_target_price = std::nullopt;
@@ -113,6 +128,7 @@ void strategies_skip_disabled_instruments() {
 int main() {
     manual_buy_emits_signal_at_or_below_configured_price();
     manual_buy_skips_when_price_is_too_high();
+    manual_buy_falls_back_to_latest_close_when_quote_is_old();
     rsi_oversold_emits_signal_when_threshold_is_met();
     rsi_oversold_skips_when_data_is_insufficient();
     strategies_skip_disabled_instruments();

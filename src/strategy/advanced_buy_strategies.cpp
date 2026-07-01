@@ -13,7 +13,7 @@ namespace tradingbot::strategy {
 namespace {
 
 std::optional<core::Money> entry_price(const StrategyContext& context) {
-    if (context.quote && context.quote->ltp > 0.0 && !context.quote->stale) {
+    if (context.quote && is_usable_quote(*context.quote, context.evaluated_at)) {
         return context.quote->ltp;
     }
     return latest_close(context);

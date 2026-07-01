@@ -23,6 +23,19 @@ std::optional<core::Money> latest_close(const StrategyContext& context) {
     return context.candles.back().close;
 }
 
+bool is_usable_quote(const core::QuoteSnapshot& quote, core::TimePoint evaluated_at, std::chrono::seconds max_age) {
+    if (quote.stale || quote.ltp <= 0.0) {
+        return false;
+    }
+    if (quote.timestamp == core::TimePoint{}) {
+        return true;
+    }
+    if (evaluated_at == core::TimePoint{}) {
+        return false;
+    }
+    return quote.timestamp >= evaluated_at || evaluated_at - quote.timestamp <= max_age;
+}
+
 bool is_actionable_signal(const core::StrategySignal& signal) {
     return core::is_valid_instrument_key(signal.instrument_key) && signal.confidence > 0.0 &&
            signal.confidence <= 1.0 && signal.suggested_quantity > 0 && !signal.reason.empty() &&
@@ -30,4 +43,3 @@ bool is_actionable_signal(const core::StrategySignal& signal) {
 }
 
 }  // namespace tradingbot::strategy
-
