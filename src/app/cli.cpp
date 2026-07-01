@@ -113,7 +113,7 @@ CliResult parse_cli(std::vector<std::string> args) {
     return result;
 }
 
-int run_cli(const CliOptions& options, std::ostream& out, std::ostream& err) {
+int run_cli(const CliOptions& options, std::ostream& out, std::ostream& err, OrderHistoryReader* order_history_reader) {
     if (options.help_requested) {
         print_usage(out);
         return 0;
@@ -144,6 +144,15 @@ int run_cli(const CliOptions& options, std::ostream& out, std::ostream& err) {
             out << "live mode selected: live order placement gates are satisfied.\n";
             return 0;
         case Mode::ShowOrders:
+            if (order_history_reader) {
+                const auto history = order_history_reader->load_orders();
+                if (!history.ok) {
+                    err << (history.error.empty() ? "failed to load orders" : history.error) << "\n";
+                    return 2;
+                }
+                print_orders(history.orders, out);
+                return 0;
+            }
             print_orders({}, out);
             return 0;
     }

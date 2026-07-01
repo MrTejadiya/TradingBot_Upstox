@@ -1,5 +1,7 @@
 #pragma once
 
+#include "tradingbot/core/domain.hpp"
+
 #include <iosfwd>
 #include <string>
 #include <vector>
@@ -27,9 +29,22 @@ struct CliResult {
     std::string error{};
 };
 
+struct OrderHistoryLoadResult {
+    bool ok{false};
+    std::vector<core::OrderRecord> orders;
+    std::string error;
+};
+
+class OrderHistoryReader {
+public:
+    virtual ~OrderHistoryReader() = default;
+    virtual OrderHistoryLoadResult load_orders() = 0;
+};
+
 std::string to_string(Mode mode);
 CliResult parse_cli(std::vector<std::string> args);
-int run_cli(const CliOptions& options, std::ostream& out, std::ostream& err);
+int run_cli(const CliOptions& options, std::ostream& out, std::ostream& err,
+            OrderHistoryReader* order_history_reader = nullptr);
 void print_usage(std::ostream& out);
 
 }  // namespace tradingbot::app

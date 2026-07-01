@@ -1,5 +1,6 @@
 #include "tradingbot/app/cli.hpp"
 
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
@@ -9,11 +10,39 @@
 
 namespace {
 
+class FakeOrderHistoryReader final : public tradingbot::app::OrderHistoryReader {
+public:
+    tradingbot::app::OrderHistoryLoadResult result;
+
+    tradingbot::app::OrderHistoryLoadResult load_orders() override {
+        ++calls;
+        return result;
+    }
+
+    int calls{0};
+};
+
 void require(bool condition, const std::string& message) {
     if (!condition) {
         std::cerr << "FAILED: " << message << "\n";
         std::exit(1);
     }
+}
+
+tradingbot::core::OrderRecord order_record() {
+    return {
+        .request =
+            {
+                .instrument_key = {"NSE_EQ|INE002A01018"},
+                .side = tradingbot::core::OrderSide::Buy,
+                .quantity = 1,
+                .price = 100.0,
+                .run_id = "run-1",
+            },
+        .broker_order_id = "ORDER-1",
+        .status = tradingbot::core::OrderStatus::Accepted,
+        .updated_at = tradingbot::core::TimePoint{std::chrono::seconds{1}},
+    };
 }
 
 void parses_default_dry_run_mode() {
@@ -105,6 +134,39 @@ void show_orders_prints_empty_state() {
     require(out.str().find("No orders found") != std::string::npos, "show-orders should print empty state");
 }
 
+void show_orders_renders_loaded_history() {
+    std::ostringstream out;
+    std::ostringstream err;
+    tradingbot::app::CliOptions options;
+    options.mode = tradingbot::app::Mode::ShowOrders;
+    FakeOrderHistoryReader reader;
+    reader.result = {.ok = true, .orders = {order_record()}};
+
+    const auto code = tradingbot::app::run_cli(options, out, err, &reader);
+
+    require(code == 0, "show-orders should run with history reader");
+    require(reader.calls == 1, "show-orders should load order history");
+    require(err.str().empty(), "successful show-orders should not write errors");
+    require(out.str().find("ORDER-1") != std::string::npos, "show-orders should render loaded order");
+    require(out.str().find("No orders found") == std::string::npos, "loaded history should not print empty state");
+}
+
+void show_orders_reports_history_reader_failure() {
+    std::ostringstream out;
+    std::ostringstream err;
+    tradingbot::app::CliOptions options;
+    options.mode = tradingbot::app::Mode::ShowOrders;
+    FakeOrderHistoryReader reader;
+    reader.result = {.ok = false, .error = "database unavailable"};
+
+    const auto code = tradingbot::app::run_cli(options, out, err, &reader);
+
+    require(code != 0, "show-orders should fail when history reader fails");
+    require(reader.calls == 1, "show-orders should call failing reader once");
+    require(out.str().empty(), "failed show-orders should not print table");
+    require(err.str().find("database unavailable") != std::string::npos, "reader error should be reported");
+}
+
 }  // namespace
 
 int main() {
@@ -116,5 +178,7 @@ int main() {
     allows_live_mode_after_explicit_gates();
     allows_paper_mode_without_live_gates();
     show_orders_prints_empty_state();
+    show_orders_renders_loaded_history();
+    show_orders_reports_history_reader_failure();
     return 0;
 }
