@@ -125,3 +125,6 @@ orders, risk events, and audit events through a sink abstraction.
 
 The show-orders command renders order records in a stable table format and
 prints an explicit empty state when no orders are available.
+
+Dry-run integration coverage connects strategy signal generation, aggregation,
+risk approval, order queuing, dry-run dispatch, and persistence without broker calls.
