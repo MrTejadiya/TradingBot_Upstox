@@ -20,12 +20,15 @@ If Ninja is not available, omit `-G "Ninja"` and let CMake choose a local genera
 .\build\tradingbot_upstox.exe --mode paper
 .\build\tradingbot_upstox.exe --mode show-orders
 .\build\tradingbot_upstox.exe --config config.example.json --mode show-orders
+.\build\tradingbot_upstox.exe --config config.example.json --mode show-orders --limit 10
 ```
 
 `dry-run` is the default mode. `paper` uses local simulator/backtest components
 without broker order placement. `live` requires explicit live-trading gates.
 Pass `--config <path>` to load JSON configuration; explicit CLI flags such as
 `--mode` override config defaults.
+Pass `--limit <count>` with `show-orders` to print only the first N loaded
+history rows.
 
 ## Configuration
 
