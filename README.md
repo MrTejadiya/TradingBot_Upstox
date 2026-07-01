@@ -109,6 +109,28 @@ history.
 The market feed layer currently provides a websocket-ready abstraction for LTP
 subscription payloads, quote message parsing, and disconnect notifications.
 
+## Read-Only Scanner Evidence
+
+Use `scripts/live_rsi_divergence_scan.py` to fetch historical candles and render
+RSI divergence evidence charts without touching any order endpoint:
+
+```powershell
+python scripts\live_rsi_divergence_scan.py `
+  --token-file upstox_token.txt `
+  --instrument RELIANCE_NSE=NSE_EQ|INE002A01018 `
+  --instrument RELIANCE_BSE=BSE_EQ|INE002A01018 `
+  --from-date 2026-01-01 `
+  --to-date 2026-07-01 `
+  --output-dir reports\rsi-divergence
+```
+
+The script reads `UPSTOX_ACCESS_TOKEN` first and falls back to the configured
+token file. If explicit dates are omitted, it uses `--lookback-days` to build a
+date range. `--output-dir` writes PNG charts that mark price pivots, RSI pivots,
+and detected divergence pairs. The script validates date ranges and scanner
+parameters before token loading or network calls, and it only calls Upstox
+historical candle APIs.
+
 Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.
 
