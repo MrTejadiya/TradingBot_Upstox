@@ -262,6 +262,14 @@ target_link_libraries(tradingbot_sqlite_migrations_tests PRIVATE tradingbot_core
 
 add_test(NAME tradingbot_sqlite_migrations_tests COMMAND tradingbot_sqlite_migrations_tests)
 
+add_executable(tradingbot_order_history_mapper_tests
+    persistence/order_history_mapper_tests.cpp
+)
+
+target_link_libraries(tradingbot_order_history_mapper_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_order_history_mapper_tests COMMAND tradingbot_order_history_mapper_tests)
+
 add_executable(tradingbot_persistence_worker_tests
     persistence/persistence_worker_tests.cpp
 )
