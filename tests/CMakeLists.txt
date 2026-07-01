@@ -14,6 +14,14 @@ target_link_libraries(tradingbot_operating_mode_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_operating_mode_tests COMMAND tradingbot_operating_mode_tests)
 
+add_executable(tradingbot_order_display_tests
+    app/order_display_tests.cpp
+)
+
+target_link_libraries(tradingbot_order_display_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_order_display_tests COMMAND tradingbot_order_display_tests)
+
 add_executable(tradingbot_domain_tests
     core/domain_tests.cpp
 )

@@ -77,6 +77,18 @@ void allows_live_mode_after_explicit_gates() {
     require(out.str().find("gates are satisfied") != std::string::npos, "live mode should confirm gates");
 }
 
+void show_orders_prints_empty_state() {
+    std::ostringstream out;
+    std::ostringstream err;
+    tradingbot::app::CliOptions options;
+    options.mode = tradingbot::app::Mode::ShowOrders;
+
+    const auto code = tradingbot::app::run_cli(options, out, err);
+
+    require(code == 0, "show-orders should run");
+    require(out.str().find("No orders found") != std::string::npos, "show-orders should print empty state");
+}
+
 }  // namespace
 
 int main() {
@@ -86,5 +98,6 @@ int main() {
     parses_live_gate_flags();
     blocks_live_mode_in_scaffold();
     allows_live_mode_after_explicit_gates();
+    show_orders_prints_empty_state();
     return 0;
 }

@@ -1,6 +1,7 @@
 #include "tradingbot/app/cli.hpp"
 
 #include "tradingbot/app/operating_mode.hpp"
+#include "tradingbot/app/order_display.hpp"
 
 #include <cstddef>
 #include <ostream>
@@ -142,7 +143,7 @@ int run_cli(const CliOptions& options, std::ostream& out, std::ostream& err) {
             out << "live mode selected: live order placement gates are satisfied.\n";
             return 0;
         case Mode::ShowOrders:
-            out << "show-orders mode selected: SQLite order display scaffold is ready.\n";
+            print_orders({}, out);
             return 0;
     }
 

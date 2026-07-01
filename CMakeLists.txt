@@ -16,6 +16,7 @@ add_library(tradingbot_core
     src/core/domain.cpp
     src/app/cli.cpp
     src/app/operating_mode.cpp
+    src/app/order_display.cpp
     src/infra/config.cpp
     src/infra/credentials.cpp
     src/infra/candle_service.cpp
