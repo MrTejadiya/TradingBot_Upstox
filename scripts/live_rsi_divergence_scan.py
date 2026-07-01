@@ -411,6 +411,14 @@ def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
             parser.error(f"--{name.replace('_', '-')} must be a positive integer")
     if bool(args.from_date) != bool(args.to_date):
         parser.error("--from-date and --to-date must be provided together")
+    if args.from_date and args.to_date:
+        try:
+            from_date = dt.date.fromisoformat(args.from_date)
+            to_date = dt.date.fromisoformat(args.to_date)
+        except ValueError:
+            parser.error("--from-date and --to-date must use YYYY-MM-DD format")
+        if from_date > to_date:
+            parser.error("--from-date must be on or before --to-date")
 
 
 def main(argv: Iterable[str] | None = None) -> int:

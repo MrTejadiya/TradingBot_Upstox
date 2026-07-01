@@ -131,6 +131,12 @@ class LiveRsiDivergenceScanTests(unittest.TestCase):
 
         validate_args(parser, args)
 
+    def test_validate_args_accepts_missing_date_range_for_default_lookback(self):
+        parser = build_parser()
+        args = parser.parse_args([])
+
+        validate_args(parser, args)
+
     def test_validate_args_rejects_non_positive_scanner_values(self):
         parser = build_parser()
         for option in ("--interval", "--lookback-days", "--rsi-period", "--wing-size"):
@@ -142,6 +148,20 @@ class LiveRsiDivergenceScanTests(unittest.TestCase):
     def test_validate_args_rejects_partial_date_range(self):
         parser = build_parser()
         args = parser.parse_args(["--from-date", "2026-01-01"])
+
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            validate_args(parser, args)
+
+    def test_validate_args_rejects_invalid_date_format(self):
+        parser = build_parser()
+        args = parser.parse_args(["--from-date", "01-01-2026", "--to-date", "2026-07-01"])
+
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            validate_args(parser, args)
+
+    def test_validate_args_rejects_reversed_date_range(self):
+        parser = build_parser()
+        args = parser.parse_args(["--from-date", "2026-07-01", "--to-date", "2026-01-01"])
 
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             validate_args(parser, args)
