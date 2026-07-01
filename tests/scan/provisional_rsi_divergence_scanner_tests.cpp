@@ -132,6 +132,23 @@ void partitions_inputs_by_instrument_owner() {
     require(first_bucket == third_bucket, "same instrument key should stay in one owner partition");
 }
 
+void defaults_worker_count_to_available_cores() {
+    require(tradingbot::scan::available_worker_count() >= 1, "available worker count should have a safe fallback");
+
+    const auto bull_key = std::string{"NSE_EQ|BULL"};
+    tradingbot::scan::LiveCandleAggregator aggregator;
+    aggregator.update(quote(bull_key, 80.0, 11));
+    tradingbot::scan::ProvisionalRsiDivergenceScanner scanner({.rsi_period = 3, .wing_size = 1});
+
+    const auto results = scanner.scan_parallel({
+        {.instrument = instrument(bull_key, "BULL"),
+         .historical_candles = candles_from_closes(bull_key, {100, 103, 101, 106, 98, 96, 94, 86, 88, 80, 82})},
+    }, aggregator);
+
+    require(results.size() == 1, "default scanner should process inputs with auto worker count");
+    require(results[0].bullish_divergence, "default scanner should preserve scan behavior");
+}
+
 void scans_multiple_instruments_in_parallel_with_stable_order() {
     const auto bull_key = std::string{"NSE_EQ|BULL"};
     const auto bear_key = std::string{"NSE_EQ|BEAR"};
@@ -161,6 +178,7 @@ int main() {
     reports_insufficient_candles();
     assigns_same_instrument_key_to_same_owner_partition();
     partitions_inputs_by_instrument_owner();
+    defaults_worker_count_to_available_cores();
     scans_multiple_instruments_in_parallel_with_stable_order();
     return 0;
 }

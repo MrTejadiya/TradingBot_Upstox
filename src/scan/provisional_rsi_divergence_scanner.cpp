@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <optional>
+#include <thread>
 
 namespace tradingbot::scan {
 namespace {
@@ -101,6 +102,11 @@ std::size_t owner_partition(const std::string& instrument_key, std::size_t parti
     return static_cast<std::size_t>(hash % partition_count);
 }
 
+std::size_t available_worker_count() {
+    const auto detected = std::thread::hardware_concurrency();
+    return detected == 0 ? std::size_t{1} : static_cast<std::size_t>(detected);
+}
+
 std::vector<std::vector<std::size_t>> partition_scan_inputs(const std::vector<ProvisionalScanInput>& inputs,
                                                             std::size_t partition_count) {
     if (partition_count == 0) {
@@ -117,7 +123,7 @@ std::vector<std::vector<std::size_t>> partition_scan_inputs(const std::vector<Pr
 ProvisionalRsiDivergenceScanner::ProvisionalRsiDivergenceScanner(ProvisionalRsiDivergenceConfig config)
     : config_(config) {
     if (config_.worker_count == 0) {
-        config_.worker_count = 1;
+        config_.worker_count = available_worker_count();
     }
 }
 

@@ -30,7 +30,7 @@ struct ProvisionalDivergenceResult {
 struct ProvisionalRsiDivergenceConfig {
     int rsi_period{14};
     int wing_size{1};
-    std::size_t worker_count{1};
+    std::size_t worker_count{0};
 };
 
 class ProvisionalRsiDivergenceScanner {
@@ -47,6 +47,7 @@ private:
 };
 
 std::size_t owner_partition(const std::string& instrument_key, std::size_t partition_count);
+std::size_t available_worker_count();
 std::vector<std::vector<std::size_t>> partition_scan_inputs(const std::vector<ProvisionalScanInput>& inputs,
                                                             std::size_t partition_count);
 
