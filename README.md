@@ -113,3 +113,6 @@ live-trading, risk, market-session, and rate-limit safety gates pass.
 
 Order monitoring maps Upstox order-book statuses into terminal/non-terminal
 `OrderRecord` state for tracking and follow-up workflows.
+
+Runtime worker groups provide thread-safe task submission, drain/stop behavior,
+and exception capture for background processing.

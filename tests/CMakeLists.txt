@@ -213,3 +213,11 @@ add_executable(tradingbot_order_monitor_tests
 target_link_libraries(tradingbot_order_monitor_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_order_monitor_tests COMMAND tradingbot_order_monitor_tests)
+
+add_executable(tradingbot_worker_group_tests
+    runtime/worker_group_tests.cpp
+)
+
+target_link_libraries(tradingbot_worker_group_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_worker_group_tests COMMAND tradingbot_worker_group_tests)
