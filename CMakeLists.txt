@@ -100,6 +100,7 @@ add_executable(tradingbot_upstox
 )
 
 target_link_libraries(tradingbot_upstox PRIVATE tradingbot_core)
+copy_sqlite_runtime(tradingbot_upstox)
 
 if(TRADINGBOT_BUILD_TESTS)
     enable_testing()
