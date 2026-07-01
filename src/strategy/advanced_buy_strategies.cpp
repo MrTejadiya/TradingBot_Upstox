@@ -3,6 +3,7 @@
 #include "tradingbot/strategy/indicators.hpp"
 
 #include <algorithm>
+#include <numeric>
 #include <optional>
 #include <sstream>
 #include <utility>
@@ -176,10 +177,54 @@ std::string VolumeSurgeBuyStrategy::name() const {
 }
 
 StrategyEvaluation VolumeSurgeBuyStrategy::evaluate(const StrategyContext& context) const {
-    if (config_.lookback_period <= 0 || config_.multiplier <= 1.0) {
-        return placeholder_evaluation(context, name(), "invalid volume surge configuration");
+    StrategyEvaluation evaluation;
+    if (!can_buy(context)) {
+        evaluation.diagnostics.push_back("volume surge buy skipped: instrument is disabled or quantity/key is invalid");
+        return evaluation;
     }
-    return placeholder_evaluation(context, name(), "rule not enabled until volume confirmation is implemented");
+    if (config_.lookback_period <= 0 || config_.multiplier <= 1.0) {
+        evaluation.diagnostics.push_back("volume surge buy skipped: invalid volume surge configuration");
+        return evaluation;
+    }
+    if (context.candles.size() < static_cast<std::size_t>(config_.lookback_period + 1)) {
+        evaluation.diagnostics.push_back("volume surge buy skipped: insufficient candle data");
+        return evaluation;
+    }
+
+    const auto current = context.candles.back();
+    if (current.volume <= 0) {
+        evaluation.diagnostics.push_back("volume surge buy skipped: current volume is missing");
+        return evaluation;
+    }
+
+    const auto prior_begin = context.candles.end() - (config_.lookback_period + 1);
+    const auto prior_end = context.candles.end() - 1;
+    const auto prior_volume = std::accumulate(prior_begin, prior_end, 0.0, [](double total, const auto& candle) {
+        return total + static_cast<double>(candle.volume);
+    });
+    const auto average_volume = prior_volume / static_cast<double>(config_.lookback_period);
+    if (average_volume <= 0.0) {
+        evaluation.diagnostics.push_back("volume surge buy skipped: average volume is missing");
+        return evaluation;
+    }
+
+    const auto trigger_volume = average_volume * config_.multiplier;
+    if (static_cast<double>(current.volume) < trigger_volume) {
+        evaluation.diagnostics.push_back("volume surge buy skipped: current volume is below surge threshold");
+        return evaluation;
+    }
+
+    const auto price = entry_price(context);
+    if (!price) {
+        evaluation.diagnostics.push_back("volume surge buy skipped: no quote or close price available");
+        return evaluation;
+    }
+
+    std::ostringstream reason;
+    reason << "volume " << current.volume << " is at least " << config_.multiplier << "x average volume "
+           << average_volume;
+    evaluation.signals.push_back(build_buy_signal(context, name(), 0.72, reason.str(), *price));
+    return evaluation;
 }
 
 }  // namespace tradingbot::strategy

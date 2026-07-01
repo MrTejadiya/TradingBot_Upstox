@@ -30,6 +30,21 @@ std::vector<tradingbot::core::Candle> candles_from_closes(const std::vector<doub
     return candles;
 }
 
+std::vector<tradingbot::core::Candle> candles_from_closes_and_volumes(const std::vector<double>& closes,
+                                                                      const std::vector<int>& volumes) {
+    std::vector<tradingbot::core::Candle> candles;
+    const auto count = closes.size() < volumes.size() ? closes.size() : volumes.size();
+    for (std::size_t index = 0; index < count; ++index) {
+        candles.push_back({
+            .instrument_key = {"NSE_EQ|INE002A01018"},
+            .high = closes[index],
+            .close = closes[index],
+            .volume = volumes[index],
+        });
+    }
+    return candles;
+}
+
 tradingbot::strategy::StrategyContext sample_context() {
     return {
         .instrument = {
@@ -138,15 +153,61 @@ void breakout_skips_when_data_is_insufficient() {
             "skip diagnostic should mention insufficient data");
 }
 
-void remaining_placeholders_emit_diagnostics_but_no_signals() {
+void volume_surge_emits_buy_signal_when_volume_confirms() {
+    auto context = sample_context();
+    context.candles = candles_from_closes_and_volumes({100.0, 101.0, 102.0, 103.0, 104.0},
+                                                      {1000, 1100, 900, 1000, 2500});
+    context.quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 104.0};
+
+    const auto evaluation =
+        tradingbot::strategy::VolumeSurgeBuyStrategy{{.lookback_period = 4, .multiplier = 2.0}}.evaluate(context);
+
+    require(evaluation.signals.size() == 1, "volume surge should emit a signal above threshold");
+    const auto& signal = evaluation.signals.front();
+    require(tradingbot::strategy::is_actionable_signal(signal), "volume surge signal should be actionable");
+    require(signal.strategy_name == "volume_surge_buy", "signal should identify volume surge strategy");
+    require(signal.suggested_entry_price == 104.0, "entry should use fresh quote");
+    require(signal.reason.find("average volume") != std::string::npos, "reason should explain volume surge");
+}
+
+void volume_surge_skips_when_volume_is_below_threshold() {
+    auto context = sample_context();
+    context.candles = candles_from_closes_and_volumes({100.0, 101.0, 102.0, 103.0, 104.0},
+                                                      {1000, 1100, 900, 1000, 1800});
+
+    const auto evaluation =
+        tradingbot::strategy::VolumeSurgeBuyStrategy{{.lookback_period = 4, .multiplier = 2.0}}.evaluate(context);
+
+    require(evaluation.signals.empty(), "volume surge should skip below threshold");
+    require(evaluation.diagnostics.front().find("threshold") != std::string::npos,
+            "skip diagnostic should explain threshold");
+}
+
+void volume_surge_skips_when_data_is_insufficient() {
+    auto context = sample_context();
+    context.candles = candles_from_closes_and_volumes({100.0, 104.0}, {1000, 2500});
+
+    const auto evaluation =
+        tradingbot::strategy::VolumeSurgeBuyStrategy{{.lookback_period = 4, .multiplier = 2.0}}.evaluate(context);
+
+    require(evaluation.signals.empty(), "volume surge should skip insufficient data");
+    require(evaluation.diagnostics.front().find("insufficient") != std::string::npos,
+            "skip diagnostic should mention insufficient data");
+}
+
+void all_advanced_buy_strategies_are_implemented() {
     const auto context = sample_context();
     std::vector<std::unique_ptr<tradingbot::strategy::Strategy>> strategies;
+    strategies.push_back(std::make_unique<tradingbot::strategy::EmaCrossoverBuyStrategy>(
+        tradingbot::strategy::EmaCrossoverConfig{.fast_period = 2, .slow_period = 3}));
+    strategies.push_back(std::make_unique<tradingbot::strategy::BreakoutBuyStrategy>(
+        tradingbot::strategy::BreakoutConfig{.lookback_period = 4, .breakout_pct = 2.0}));
     strategies.push_back(std::make_unique<tradingbot::strategy::VolumeSurgeBuyStrategy>());
 
     for (const auto& strategy : strategies) {
         const auto evaluation = strategy->evaluate(context);
-        require(evaluation.signals.empty(), strategy->name() + " should not emit placeholder signals");
-        require(evaluation.diagnostics.size() == 1, strategy->name() + " should emit one diagnostic");
+        require(evaluation.diagnostics.empty() || evaluation.diagnostics.front().find("placeholder") == std::string::npos,
+                strategy->name() + " should not use placeholder diagnostics");
     }
 }
 
@@ -174,7 +235,10 @@ int main() {
     breakout_emits_buy_signal_when_price_clears_resistance();
     breakout_skips_when_price_has_not_cleared_threshold();
     breakout_skips_when_data_is_insufficient();
-    remaining_placeholders_emit_diagnostics_but_no_signals();
+    volume_surge_emits_buy_signal_when_volume_confirms();
+    volume_surge_skips_when_volume_is_below_threshold();
+    volume_surge_skips_when_data_is_insufficient();
+    all_advanced_buy_strategies_are_implemented();
     invalid_configuration_is_reported();
     return 0;
 }
