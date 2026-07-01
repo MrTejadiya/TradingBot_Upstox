@@ -1,8 +1,10 @@
 #include "tradingbot/strategy/advanced_buy_strategies.hpp"
 
 #include <cstdlib>
+#include <cmath>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -15,30 +17,89 @@ void require(bool condition, const std::string& message) {
     }
 }
 
+void require_optional_near(const std::optional<double>& actual, double expected, const std::string& message) {
+    require(actual.has_value(), message);
+    require(std::fabs(*actual - expected) <= 0.0001, message);
+}
+
+std::vector<tradingbot::core::Candle> candles_from_closes(const std::vector<double>& closes) {
+    std::vector<tradingbot::core::Candle> candles;
+    for (const auto close : closes) {
+        candles.push_back({.instrument_key = {"NSE_EQ|INE002A01018"}, .close = close, .volume = 1000});
+    }
+    return candles;
+}
+
 tradingbot::strategy::StrategyContext sample_context() {
     return {
-        .instrument = {.key = {"NSE_EQ|INE002A01018"}, .symbol = "RELIANCE", .enabled = true, .quantity = 3},
-        .candles = {{.instrument_key = {"NSE_EQ|INE002A01018"}, .close = 100.0, .volume = 1000},
-                    {.instrument_key = {"NSE_EQ|INE002A01018"}, .close = 102.0, .volume = 1500}},
-        .quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 103.0},
+        .instrument = {
+            .key = {"NSE_EQ|INE002A01018"},
+            .symbol = "RELIANCE",
+            .enabled = true,
+            .quantity = 3,
+            .manual_target_price = 115.0,
+            .stop_loss_pct = 5.0,
+            .target_profit_pct = 10.0,
+        },
+        .candles = candles_from_closes({100.0, 99.0, 98.0, 97.0, 110.0}),
+        .quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 111.0},
         .portfolio = {.available_funds = 50000.0},
         .evaluated_at = tradingbot::core::Clock::now(),
     };
 }
 
-void placeholders_have_stable_names() {
+void strategies_have_stable_names() {
     require(tradingbot::strategy::EmaCrossoverBuyStrategy{}.name() == "ema_crossover_buy",
-            "EMA crossover placeholder should expose stable name");
+            "EMA crossover strategy should expose stable name");
     require(tradingbot::strategy::BreakoutBuyStrategy{}.name() == "breakout_buy",
             "breakout placeholder should expose stable name");
     require(tradingbot::strategy::VolumeSurgeBuyStrategy{}.name() == "volume_surge_buy",
             "volume surge placeholder should expose stable name");
 }
 
-void placeholders_emit_diagnostics_but_no_signals() {
+void ema_crossover_emits_buy_signal_on_bullish_cross() {
+    const auto evaluation =
+        tradingbot::strategy::EmaCrossoverBuyStrategy{{.fast_period = 2, .slow_period = 3}}.evaluate(sample_context());
+
+    require(evaluation.signals.size() == 1, "EMA crossover should emit a signal on bullish cross");
+    const auto& signal = evaluation.signals.front();
+    require(tradingbot::strategy::is_actionable_signal(signal), "EMA crossover signal should be actionable");
+    require(signal.strategy_name == "ema_crossover_buy", "signal should identify EMA crossover strategy");
+    require(signal.suggested_quantity == 3, "quantity should come from instrument");
+    require(signal.suggested_entry_price == 111.0, "entry should use fresh quote");
+    require_optional_near(signal.suggested_target_price, 115.0, "manual target should be retained");
+    require_optional_near(signal.suggested_stop_loss, 105.45, "stop loss should derive from entry");
+    require(signal.reason.find("fast EMA crossed above slow EMA") != std::string::npos,
+            "reason should explain crossover");
+}
+
+void ema_crossover_skips_when_cross_is_not_confirmed() {
+    auto context = sample_context();
+    context.candles = candles_from_closes({100.0, 101.0, 102.0, 103.0, 104.0});
+
+    const auto evaluation =
+        tradingbot::strategy::EmaCrossoverBuyStrategy{{.fast_period = 2, .slow_period = 3}}.evaluate(context);
+
+    require(evaluation.signals.empty(), "EMA crossover should skip without a fresh bullish cross");
+    require(evaluation.diagnostics.front().find("not confirmed") != std::string::npos,
+            "skip diagnostic should explain missing crossover");
+}
+
+void ema_crossover_skips_when_data_is_insufficient() {
+    auto context = sample_context();
+    context.candles = candles_from_closes({100.0, 99.0, 110.0});
+
+    const auto evaluation =
+        tradingbot::strategy::EmaCrossoverBuyStrategy{{.fast_period = 2, .slow_period = 3}}.evaluate(context);
+
+    require(evaluation.signals.empty(), "EMA crossover should skip insufficient data");
+    require(evaluation.diagnostics.front().find("insufficient") != std::string::npos,
+            "skip diagnostic should mention insufficient data");
+}
+
+void remaining_placeholders_emit_diagnostics_but_no_signals() {
     const auto context = sample_context();
     std::vector<std::unique_ptr<tradingbot::strategy::Strategy>> strategies;
-    strategies.push_back(std::make_unique<tradingbot::strategy::EmaCrossoverBuyStrategy>());
     strategies.push_back(std::make_unique<tradingbot::strategy::BreakoutBuyStrategy>());
     strategies.push_back(std::make_unique<tradingbot::strategy::VolumeSurgeBuyStrategy>());
 
@@ -66,9 +127,11 @@ void invalid_configuration_is_reported() {
 }  // namespace
 
 int main() {
-    placeholders_have_stable_names();
-    placeholders_emit_diagnostics_but_no_signals();
+    strategies_have_stable_names();
+    ema_crossover_emits_buy_signal_on_bullish_cross();
+    ema_crossover_skips_when_cross_is_not_confirmed();
+    ema_crossover_skips_when_data_is_insufficient();
+    remaining_placeholders_emit_diagnostics_but_no_signals();
     invalid_configuration_is_reported();
     return 0;
 }
-
