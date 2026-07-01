@@ -70,6 +70,14 @@ target_link_libraries(tradingbot_upstox_api_client_tests PRIVATE tradingbot_core
 
 add_test(NAME tradingbot_upstox_api_client_tests COMMAND tradingbot_upstox_api_client_tests)
 
+add_executable(tradingbot_time_utils_tests
+    infra/time_utils_tests.cpp
+)
+
+target_link_libraries(tradingbot_time_utils_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_time_utils_tests COMMAND tradingbot_time_utils_tests)
+
 add_executable(tradingbot_market_quote_service_tests
     infra/market_quote_service_tests.cpp
 )
