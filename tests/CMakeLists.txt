@@ -286,6 +286,14 @@ target_link_libraries(tradingbot_risk_event_mapper_tests PRIVATE tradingbot_core
 
 add_test(NAME tradingbot_risk_event_mapper_tests COMMAND tradingbot_risk_event_mapper_tests)
 
+add_executable(tradingbot_strategy_signal_mapper_tests
+    persistence/strategy_signal_mapper_tests.cpp
+)
+
+target_link_libraries(tradingbot_strategy_signal_mapper_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_strategy_signal_mapper_tests COMMAND tradingbot_strategy_signal_mapper_tests)
+
 add_executable(tradingbot_persistence_worker_tests
     persistence/persistence_worker_tests.cpp
 )
