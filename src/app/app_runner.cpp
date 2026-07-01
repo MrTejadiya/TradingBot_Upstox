@@ -4,9 +4,14 @@
 #include "tradingbot/infra/config.hpp"
 #include "tradingbot/persistence/sqlite_database.hpp"
 #include "tradingbot/persistence/sqlite_order_history_reader.hpp"
+#include "tradingbot/persistence/sqlite_persistence_sink.hpp"
 
+#include <chrono>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 
 namespace tradingbot::app {
@@ -31,6 +36,33 @@ int report_config_errors(const infra::ConfigLoadResult& result, std::ostream& er
     return 2;
 }
 
+std::string read_text_file(const std::string& path) {
+    std::ifstream file(path);
+    if (!file) {
+        return {};
+    }
+    std::ostringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+std::string fnv1a64_hex(const std::string& text) {
+    auto hash = 14695981039346656037ULL;
+    for (const auto ch : text) {
+        hash ^= static_cast<unsigned char>(ch);
+        hash *= 1099511628211ULL;
+    }
+    std::ostringstream out;
+    out << "fnv1a64:" << std::hex << std::setw(16) << std::setfill('0') << hash;
+    return out.str();
+}
+
+std::string run_id_for(core::TimePoint started_at, Mode mode) {
+    const auto millis =
+        std::chrono::duration_cast<std::chrono::milliseconds>(started_at.time_since_epoch()).count();
+    return to_string(mode) + "-" + std::to_string(millis);
+}
+
 }  // namespace
 
 int run_app(const std::vector<std::string>& args, std::ostream& out, std::ostream& err) {
@@ -46,13 +78,14 @@ int run_app(const std::vector<std::string>& args, std::ostream& out, std::ostrea
         return run_cli(options, out, err);
     }
 
+    const auto config_text = read_text_file(options.config_path);
     const auto config = infra::load_config_file(options.config_path);
     if (!config.ok) {
         return report_config_errors(config, err);
     }
 
     apply_config_defaults(options, config.config);
-    if (options.mode != Mode::ShowOrders || config.config.storage.sqlite_path.empty()) {
+    if (config.config.storage.sqlite_path.empty()) {
         return run_cli(options, out, err);
     }
 
@@ -65,6 +98,23 @@ int run_app(const std::vector<std::string>& args, std::ostream& out, std::ostrea
     try {
         persistence::SqliteMigrationStore migrations(database);
         persistence::apply_pending_migrations(migrations);
+        if (options.mode != Mode::ShowOrders) {
+            const auto started_at = core::Clock::now();
+            const auto run_id = run_id_for(started_at, options.mode);
+            persistence::SqlitePersistenceSink sink(database, run_id);
+            core::BotRun run{
+                .run_id = run_id,
+                .started_at = started_at,
+                .mode = to_string(options.mode),
+                .config_hash = fnv1a64_hex(config_text),
+            };
+            sink.save_bot_run(run);
+            const auto code = run_cli(options, out, err);
+            run.ended_at = core::Clock::now();
+            sink.save_bot_run(run);
+            return code;
+        }
+
         persistence::SqliteOrderHistoryReader reader(database);
         return run_cli(options, out, err, &reader);
     } catch (const std::exception& ex) {
