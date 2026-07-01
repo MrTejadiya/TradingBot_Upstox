@@ -4,9 +4,7 @@
 #include "tradingbot/strategy/indicators.hpp"
 
 #include <algorithm>
-#include <cstdint>
 #include <optional>
-#include <thread>
 
 namespace tradingbot::scan {
 namespace {
@@ -89,24 +87,6 @@ bool has_bearish_divergence(const std::vector<double>& prices, const std::vector
 
 }  // namespace
 
-std::size_t owner_partition(const std::string& instrument_key, std::size_t partition_count) {
-    if (partition_count == 0) {
-        return 0;
-    }
-
-    auto hash = std::uint64_t{14695981039346656037ULL};
-    for (const auto ch : instrument_key) {
-        hash ^= static_cast<unsigned char>(ch);
-        hash *= 1099511628211ULL;
-    }
-    return static_cast<std::size_t>(hash % partition_count);
-}
-
-std::size_t available_worker_count() {
-    const auto detected = std::thread::hardware_concurrency();
-    return detected == 0 ? std::size_t{1} : static_cast<std::size_t>(detected);
-}
-
 std::vector<std::vector<std::size_t>> partition_scan_inputs(const std::vector<ProvisionalScanInput>& inputs,
                                                             std::size_t partition_count) {
     if (partition_count == 0) {
@@ -129,7 +109,11 @@ ProvisionalRsiDivergenceScanner::ProvisionalRsiDivergenceScanner(ProvisionalRsiD
 
 ProvisionalDivergenceResult ProvisionalRsiDivergenceScanner::scan_one(
     const ProvisionalScanInput& input, const LiveCandleAggregator& aggregator) const {
-    const auto live_candle = aggregator.current_candle(input.instrument.key);
+    return scan_one(input, aggregator.current_candle(input.instrument.key));
+}
+
+ProvisionalDivergenceResult ProvisionalRsiDivergenceScanner::scan_one(
+    const ProvisionalScanInput& input, const std::optional<core::Candle>& live_candle) const {
     auto candles = with_provisional_candle(input.historical_candles, live_candle);
     const auto provisional = live_candle.has_value();
     ProvisionalDivergenceResult result{
@@ -163,6 +147,37 @@ ProvisionalDivergenceResult ProvisionalRsiDivergenceScanner::scan_one(
     result.bearish_divergence = has_bearish_divergence(closes, rsi, config_.wing_size);
     result.diagnostic = result.provisional ? "provisional scan includes live candle" : "scan uses closed candles only";
     return result;
+}
+
+std::vector<ProvisionalDivergenceResult> ProvisionalRsiDivergenceScanner::scan_parallel(
+    const std::vector<ProvisionalScanInput>& inputs, const PartitionedLiveCandleStore& candle_store) const {
+    std::vector<ProvisionalDivergenceResult> results(inputs.size());
+    runtime::WorkerGroup workers(config_.worker_count);
+    const auto partitions = partition_scan_inputs(inputs, candle_store.partition_count());
+
+    for (auto owner_index = std::size_t{0}; owner_index < partitions.size(); ++owner_index) {
+        const auto& partition = partitions[owner_index];
+        if (partition.empty()) {
+            continue;
+        }
+        workers.submit([&, owner_index, partition] {
+            for (const auto input_index : partition) {
+                const auto live_candle = candle_store.current_candle(owner_index, inputs[input_index].instrument.key);
+                results[input_index] = scan_one(inputs[input_index], live_candle);
+            }
+        });
+    }
+    workers.drain();
+
+    const auto errors = workers.errors();
+    if (!errors.empty()) {
+        for (auto& result : results) {
+            if (result.instrument_key.value.empty()) {
+                result.diagnostic = errors.front();
+            }
+        }
+    }
+    return results;
 }
 
 std::vector<ProvisionalDivergenceResult> ProvisionalRsiDivergenceScanner::scan_parallel(

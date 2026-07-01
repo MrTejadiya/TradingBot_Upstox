@@ -68,6 +68,7 @@ add_library(tradingbot_core
     src/persistence/sqlite_time.cpp
     src/persistence/strategy_signal_mapper.cpp
     src/runtime/worker_group.cpp
+    src/scan/instrument_partitioner.cpp
     src/scan/live_candle_aggregator.cpp
     src/scan/provisional_rsi_divergence_scanner.cpp
     src/strategy/advanced_buy_strategies.cpp

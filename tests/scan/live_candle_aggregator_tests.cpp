@@ -26,6 +26,14 @@ tradingbot::core::QuoteSnapshot quote(double ltp, int seconds = 100) {
     };
 }
 
+tradingbot::core::QuoteSnapshot keyed_quote(const std::string& key, double ltp, int seconds = 100) {
+    return {
+        .instrument_key = {key},
+        .timestamp = tp(seconds),
+        .ltp = ltp,
+    };
+}
+
 tradingbot::core::Candle candle(double close, int seconds = 0) {
     return {
         .instrument_key = {"NSE_EQ|INE002A01018"},
@@ -64,6 +72,28 @@ void ignores_stale_and_invalid_quotes() {
     require(!aggregator.current_candle({"NSE_EQ|INE002A01018"}), "invalid quotes should not create a candle");
 }
 
+void partitioned_store_updates_only_the_owner_partition() {
+    const auto key = std::string{"NSE_EQ|INE002A01018"};
+    tradingbot::scan::PartitionedLiveCandleStore store(4);
+    const auto owner = store.owner_for({key});
+    const auto wrong_owner = (owner + 1U) % store.partition_count();
+
+    require(!store.update(wrong_owner, keyed_quote(key, 100.0)), "wrong owner should not update candle state");
+    require(!store.current_candle(owner, {key}), "wrong-owner update should not create a candle");
+
+    require(store.update(owner, keyed_quote(key, 100.0)), "owner partition should accept quote");
+    require(store.update(owner, keyed_quote(key, 105.0)), "owner partition should update candle");
+    require(store.update(owner, keyed_quote(key, 98.0)), "owner partition should update low");
+
+    const auto current = store.current_candle(owner, {key});
+    require(current.has_value(), "owner partition should expose current candle");
+    require(current->open == 100.0, "partitioned open should come from first owner quote");
+    require(current->high == 105.0, "partitioned high should track owner quotes");
+    require(current->low == 98.0, "partitioned low should track owner quotes");
+    require(current->close == 98.0, "partitioned close should track latest owner quote");
+    require(!store.current_candle(wrong_owner, {key}), "wrong owner should not read another partition");
+}
+
 void replaces_matching_historical_candle_with_provisional() {
     const std::vector<tradingbot::core::Candle> historical{candle(99.0, 0)};
     const auto combined = tradingbot::scan::with_provisional_candle(historical, candle(101.0, 0));
@@ -85,6 +115,7 @@ void appends_new_provisional_candle() {
 int main() {
     updates_open_high_low_close_for_current_session();
     ignores_stale_and_invalid_quotes();
+    partitioned_store_updates_only_the_owner_partition();
     replaces_matching_historical_candle_with_provisional();
     appends_new_provisional_candle();
     return 0;

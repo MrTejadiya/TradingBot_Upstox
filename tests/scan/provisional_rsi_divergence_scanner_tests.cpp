@@ -149,6 +149,29 @@ void defaults_worker_count_to_available_cores() {
     require(results[0].bullish_divergence, "default scanner should preserve scan behavior");
 }
 
+void scans_with_partition_owned_live_candles() {
+    const auto bull_key = std::string{"NSE_EQ|BULL"};
+    const auto bear_key = std::string{"NSE_EQ|BEAR"};
+    tradingbot::scan::PartitionedLiveCandleStore candle_store(4);
+    require(candle_store.update(quote(bull_key, 80.0, 11)), "partitioned store should route live quote");
+    tradingbot::scan::ProvisionalRsiDivergenceScanner scanner({.rsi_period = 3, .wing_size = 1, .worker_count = 4});
+
+    const auto results = scanner.scan_parallel({
+        {.instrument = instrument(bull_key, "BULL"),
+         .historical_candles = candles_from_closes(bull_key, {100, 103, 101, 106, 98, 96, 94, 86, 88, 80, 82})},
+        {.instrument = instrument(bear_key, "BEAR"),
+         .historical_candles = candles_from_closes(bear_key, {100, 105, 110, 112, 114, 122, 119, 124, 127, 119, 121, 123})},
+    }, candle_store);
+
+    require(results.size() == 2, "partitioned scan should return both results");
+    require(results[0].instrument_key.value == bull_key, "partitioned scan should preserve first input order");
+    require(results[1].instrument_key.value == bear_key, "partitioned scan should preserve second input order");
+    require(results[0].provisional, "partitioned scan should include owner-owned live candle");
+    require(results[0].bullish_divergence, "partitioned scan should detect bullish divergence");
+    require(!results[1].provisional, "instrument without live owner candle should use closed candles");
+    require(results[1].bearish_divergence, "partitioned scan should detect bearish divergence");
+}
+
 void scans_multiple_instruments_in_parallel_with_stable_order() {
     const auto bull_key = std::string{"NSE_EQ|BULL"};
     const auto bear_key = std::string{"NSE_EQ|BEAR"};
@@ -179,6 +202,7 @@ int main() {
     assigns_same_instrument_key_to_same_owner_partition();
     partitions_inputs_by_instrument_owner();
     defaults_worker_count_to_available_cores();
+    scans_with_partition_owned_live_candles();
     scans_multiple_instruments_in_parallel_with_stable_order();
     return 0;
 }
