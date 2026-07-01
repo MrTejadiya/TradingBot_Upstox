@@ -45,6 +45,7 @@ add_library(tradingbot_core
     src/persistence/quote_snapshot_mapper.cpp
     src/persistence/risk_event_mapper.cpp
     src/persistence/sqlite_migrations.cpp
+    src/persistence/sqlite_time.cpp
     src/persistence/strategy_signal_mapper.cpp
     src/runtime/worker_group.cpp
     src/strategy/advanced_buy_strategies.cpp
