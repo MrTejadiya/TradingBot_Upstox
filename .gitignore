@@ -6,6 +6,7 @@ out/
 # Local settings and credentials
 jira_settings.txt
 github_settings.txt
+upstox_token.txt
 .env
 *.local
 
@@ -24,4 +25,3 @@ __pycache__/
 .idea/
 *.user
 *.suo
-
