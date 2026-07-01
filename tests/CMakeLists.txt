@@ -165,3 +165,11 @@ add_executable(tradingbot_kill_switch_tests
 target_link_libraries(tradingbot_kill_switch_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_kill_switch_tests COMMAND tradingbot_kill_switch_tests)
+
+add_executable(tradingbot_market_session_tests
+    strategy/market_session_tests.cpp
+)
+
+target_link_libraries(tradingbot_market_session_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_market_session_tests COMMAND tradingbot_market_session_tests)

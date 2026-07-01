@@ -95,3 +95,6 @@ duplicate open orders, buy funds, and sell holdings before orders are created.
 
 The kill switch emits emergency rejected risk events for manual, configuration,
 or external stop triggers.
+
+Market session checks use configurable local time windows with delivery-equity
+defaults of 09:15-15:30 and a conservative last-order cutoff before close.
