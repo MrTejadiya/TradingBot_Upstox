@@ -30,6 +30,9 @@ struct OrderHistoryMapResult {
 };
 
 OrderHistoryMapResult map_stored_order_row(const StoredOrderRow& row);
+StoredOrderRow map_order_record_to_stored_row(const core::OrderRecord& order);
+std::string stored_order_side_name(core::OrderSide side);
+std::string stored_order_status_name(core::OrderStatus status);
 std::optional<core::OrderSide> parse_stored_order_side(const std::string& value);
 std::optional<core::OrderStatus> parse_stored_order_status(const std::string& value);
 

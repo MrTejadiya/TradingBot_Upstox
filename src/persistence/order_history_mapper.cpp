@@ -2,6 +2,30 @@
 
 namespace tradingbot::persistence {
 
+std::string stored_order_side_name(core::OrderSide side) {
+    return side == core::OrderSide::Buy ? "buy" : "sell";
+}
+
+std::string stored_order_status_name(core::OrderStatus status) {
+    switch (status) {
+        case core::OrderStatus::Pending:
+            return "pending";
+        case core::OrderStatus::Accepted:
+            return "accepted";
+        case core::OrderStatus::Rejected:
+            return "rejected";
+        case core::OrderStatus::PartiallyFilled:
+            return "partially_filled";
+        case core::OrderStatus::Filled:
+            return "filled";
+        case core::OrderStatus::Cancelled:
+            return "cancelled";
+        case core::OrderStatus::TimedOut:
+            return "timed_out";
+    }
+    return "unknown";
+}
+
 std::optional<core::OrderSide> parse_stored_order_side(const std::string& value) {
     if (value == "buy") {
         return core::OrderSide::Buy;
@@ -35,6 +59,24 @@ std::optional<core::OrderStatus> parse_stored_order_status(const std::string& va
         return core::OrderStatus::TimedOut;
     }
     return std::nullopt;
+}
+
+StoredOrderRow map_order_record_to_stored_row(const core::OrderRecord& order) {
+    return {
+        .broker_order_id = order.broker_order_id,
+        .run_id = order.request.run_id,
+        .instrument_key = order.request.instrument_key.value,
+        .side = stored_order_side_name(order.request.side),
+        .quantity = order.request.quantity,
+        .price = order.request.price,
+        .status = stored_order_status_name(order.status),
+        .rejection_reason = order.rejection_reason,
+        .filled_quantity = order.filled_quantity,
+        .average_fill_price = order.average_fill_price,
+        .source_strategy = order.request.source_strategy,
+        .tag = order.request.tag,
+        .updated_at = order.updated_at,
+    };
 }
 
 OrderHistoryMapResult map_stored_order_row(const StoredOrderRow& row) {
