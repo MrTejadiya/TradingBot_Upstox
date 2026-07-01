@@ -72,6 +72,7 @@ add_library(tradingbot_core
     src/scan/live_candle_aggregator.cpp
     src/scan/live_rsi_divergence_engine.cpp
     src/scan/provisional_rsi_divergence_scanner.cpp
+    src/scan/rsi_divergence_signal_mapper.cpp
     src/strategy/advanced_buy_strategies.cpp
     src/strategy/buy_strategies.cpp
     src/strategy/exit_engine.cpp

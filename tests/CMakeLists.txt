@@ -288,6 +288,14 @@ target_link_libraries(tradingbot_provisional_rsi_divergence_scanner_tests PRIVAT
 
 add_test(NAME tradingbot_provisional_rsi_divergence_scanner_tests COMMAND tradingbot_provisional_rsi_divergence_scanner_tests)
 
+add_executable(tradingbot_rsi_divergence_signal_mapper_tests
+    scan/rsi_divergence_signal_mapper_tests.cpp
+)
+
+target_link_libraries(tradingbot_rsi_divergence_signal_mapper_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_rsi_divergence_signal_mapper_tests COMMAND tradingbot_rsi_divergence_signal_mapper_tests)
+
 add_executable(tradingbot_sqlite_migrations_tests
     persistence/sqlite_migrations_tests.cpp
 )
