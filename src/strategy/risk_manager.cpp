@@ -83,6 +83,10 @@ core::RiskEvent RiskManager::evaluate(const RiskManagerRequest& request) const {
         return risk_event(request, core::RiskDecision::Rejected, "DUPLICATE_OPEN_ORDER",
                           "matching open order already exists for instrument and side");
     }
+    if (request.max_orders_per_day > 0 && request.orders_placed_today >= request.max_orders_per_day) {
+        return risk_event(request, core::RiskDecision::Rejected, "MAX_ORDERS_PER_DAY_EXCEEDED",
+                          "daily order count has reached configured max orders per day");
+    }
     if (request.max_order_value > 0.0) {
         const auto value = decision_value(request);
         if (value && *value > request.max_order_value) {

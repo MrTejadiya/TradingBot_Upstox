@@ -10,6 +10,8 @@ struct RiskManagerRequest {
     core::Instrument instrument;
     core::Decision decision;
     core::PortfolioState portfolio;
+    int orders_placed_today{0};
+    int max_orders_per_day{0};
     core::Money max_order_value{0.0};
     core::Money traded_value_today{0.0};
     core::Money max_daily_traded_value{0.0};
