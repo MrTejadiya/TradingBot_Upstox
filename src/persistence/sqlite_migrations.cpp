@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS api_events (
 
 CREATE INDEX IF NOT EXISTS idx_quote_snapshots_run_instrument_time
     ON quote_snapshots(run_id, instrument_key, captured_at);
-CREATE INDEX IF NOT EXISTS idx_candles_instrument_interval_time
+CREATE UNIQUE INDEX IF NOT EXISTS idx_candles_instrument_interval_time
     ON candles(instrument_key, interval, candle_at);
 CREATE INDEX IF NOT EXISTS idx_decisions_run_instrument_time
     ON decisions(run_id, instrument_key, created_at);

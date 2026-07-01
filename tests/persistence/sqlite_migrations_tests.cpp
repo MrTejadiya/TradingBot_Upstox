@@ -84,7 +84,8 @@ void expanded_schema_contains_lookup_indexes() {
 
     require(sql.find("idx_quote_snapshots_run_instrument_time") != std::string::npos,
             "quote snapshot lookup index should exist");
-    require(sql.find("idx_candles_instrument_interval_time") != std::string::npos, "candle lookup index should exist");
+    require(sql.find("CREATE UNIQUE INDEX IF NOT EXISTS idx_candles_instrument_interval_time") != std::string::npos,
+            "candle cache key should be unique");
     require(sql.find("idx_decisions_run_instrument_time") != std::string::npos, "decision lookup index should exist");
     require(sql.find("idx_api_events_run_method_status_time") != std::string::npos,
             "API event lookup index should exist");
