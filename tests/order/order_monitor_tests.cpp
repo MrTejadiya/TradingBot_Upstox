@@ -1,5 +1,6 @@
 #include "tradingbot/order/order_monitor.hpp"
 
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -80,6 +81,45 @@ void identifies_terminal_statuses() {
             "accepted should not be terminal");
 }
 
+tradingbot::core::OrderRecord accepted_order(tradingbot::core::TimePoint updated_at) {
+    return {
+        .request = {.instrument_key = {"NSE_EQ|INE002A01018"}, .quantity = 1, .price = 100.0},
+        .broker_order_id = "ORDER-TIMEOUT",
+        .status = tradingbot::core::OrderStatus::Accepted,
+        .updated_at = updated_at,
+    };
+}
+
+void classifies_non_terminal_order_timeout() {
+    const auto now = tradingbot::core::Clock::now();
+    const auto record = accepted_order(now - std::chrono::minutes{6});
+
+    const auto result = tradingbot::order::classify_order_timeout(record, now, std::chrono::minutes{5});
+
+    require(result.status == tradingbot::core::OrderStatus::TimedOut, "old accepted order should time out");
+    require(result.rejection_reason == "order monitoring timeout", "timeout reason should be recorded");
+    require(result.updated_at == now, "timeout should update timestamp");
+}
+
+void timeout_does_not_override_terminal_order() {
+    const auto now = tradingbot::core::Clock::now();
+    auto record = accepted_order(now - std::chrono::minutes{6});
+    record.status = tradingbot::core::OrderStatus::Filled;
+
+    const auto result = tradingbot::order::classify_order_timeout(record, now, std::chrono::minutes{5});
+
+    require(result.status == tradingbot::core::OrderStatus::Filled, "terminal order should remain terminal");
+}
+
+void disabled_timeout_leaves_order_unchanged() {
+    const auto now = tradingbot::core::Clock::now();
+    const auto record = accepted_order(now - std::chrono::minutes{6});
+
+    const auto result = tradingbot::order::classify_order_timeout(record, now, std::chrono::seconds{0});
+
+    require(result.status == tradingbot::core::OrderStatus::Accepted, "disabled timeout should leave status unchanged");
+}
+
 void parses_order_book_response() {
     tradingbot::infra::ApiResult api_result;
     api_result.ok = true;
@@ -132,9 +172,11 @@ void rejects_unsuccessful_response() {
 int main() {
     maps_upstox_statuses();
     identifies_terminal_statuses();
+    classifies_non_terminal_order_timeout();
+    timeout_does_not_override_terminal_order();
+    disabled_timeout_leaves_order_unchanged();
     parses_order_book_response();
     fetches_order_book_through_api_client();
     rejects_unsuccessful_response();
     return 0;
 }
-

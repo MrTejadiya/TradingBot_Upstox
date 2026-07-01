@@ -3,6 +3,7 @@
 #include "tradingbot/core/domain.hpp"
 #include "tradingbot/infra/upstox_api_client.hpp"
 
+#include <chrono>
 #include <memory>
 #include <optional>
 #include <string>
@@ -30,7 +31,7 @@ private:
 std::string order_book_path();
 core::OrderStatus map_upstox_order_status(const std::string& status);
 bool is_terminal_order_status(core::OrderStatus status);
+core::OrderRecord classify_order_timeout(core::OrderRecord record, core::TimePoint now, std::chrono::seconds timeout);
 OrderTrackingResult parse_order_book_response(const infra::ApiResult& api_result);
 
 }  // namespace tradingbot::order
-

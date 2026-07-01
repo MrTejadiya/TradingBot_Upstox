@@ -1,6 +1,7 @@
 #include "tradingbot/order/order_monitor.hpp"
 
 #include <cctype>
+#include <chrono>
 #include <string_view>
 #include <utility>
 
@@ -156,6 +157,19 @@ bool is_terminal_order_status(core::OrderStatus status) {
            status == core::OrderStatus::Cancelled || status == core::OrderStatus::TimedOut;
 }
 
+core::OrderRecord classify_order_timeout(core::OrderRecord record, core::TimePoint now, std::chrono::seconds timeout) {
+    if (timeout <= std::chrono::seconds{0} || is_terminal_order_status(record.status) ||
+        record.updated_at == core::TimePoint{} || now == core::TimePoint{}) {
+        return record;
+    }
+    if (now - record.updated_at >= timeout) {
+        record.status = core::OrderStatus::TimedOut;
+        record.rejection_reason = "order monitoring timeout";
+        record.updated_at = now;
+    }
+    return record;
+}
+
 OrderTrackingResult parse_order_book_response(const infra::ApiResult& api_result) {
     OrderTrackingResult result;
     result.api_event = api_result.event;
@@ -192,4 +206,3 @@ OrderTrackingResult parse_order_book_response(const infra::ApiResult& api_result
 }
 
 }  // namespace tradingbot::order
-
