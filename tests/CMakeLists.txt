@@ -205,3 +205,11 @@ add_executable(tradingbot_live_order_dispatcher_tests
 target_link_libraries(tradingbot_live_order_dispatcher_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_live_order_dispatcher_tests COMMAND tradingbot_live_order_dispatcher_tests)
+
+add_executable(tradingbot_order_monitor_tests
+    order/order_monitor_tests.cpp
+)
+
+target_link_libraries(tradingbot_order_monitor_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_order_monitor_tests COMMAND tradingbot_order_monitor_tests)
