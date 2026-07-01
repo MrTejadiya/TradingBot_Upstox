@@ -143,9 +143,11 @@ void SqliteInstrumentStore::upsert(const core::Instrument& instrument, core::Tim
 }
 
 void SqliteInstrumentStore::upsert_all(const std::vector<core::Instrument>& instruments, core::TimePoint updated_at) {
+    SqliteTransaction transaction(database_);
     for (const auto& instrument : instruments) {
         upsert(instrument, updated_at);
     }
+    transaction.commit();
 }
 
 std::vector<core::Instrument> SqliteInstrumentStore::load_all() const {

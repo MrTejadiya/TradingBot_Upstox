@@ -254,6 +254,46 @@ std::vector<std::vector<std::optional<std::string>>> SqliteDatabase::query_rows(
     return rows;
 }
 
+SqliteTransaction::SqliteTransaction(std::shared_ptr<SqliteDatabase> database) : database_(std::move(database)) {
+    if (!database_ || !database_->ok()) {
+        throw std::runtime_error("SQLite transaction requires an open database");
+    }
+    if (!database_->exec("BEGIN IMMEDIATE;")) {
+        throw std::runtime_error(database_->error());
+    }
+}
+
+SqliteTransaction::~SqliteTransaction() {
+    if (!closed_ && database_) {
+        database_->exec("ROLLBACK;");
+    }
+}
+
+void SqliteTransaction::commit() {
+    if (closed_) {
+        return;
+    }
+    if (!database_->exec("COMMIT;")) {
+        const auto error = database_->error();
+        database_->exec("ROLLBACK;");
+        closed_ = true;
+        throw std::runtime_error(error);
+    }
+    closed_ = true;
+}
+
+void SqliteTransaction::rollback() {
+    if (closed_) {
+        return;
+    }
+    if (!database_->exec("ROLLBACK;")) {
+        const auto error = database_->error();
+        closed_ = true;
+        throw std::runtime_error(error);
+    }
+    closed_ = true;
+}
+
 SqliteMigrationStore::SqliteMigrationStore(std::shared_ptr<SqliteDatabase> database) : database_(std::move(database)) {
     if (!database_ || !database_->ok()) {
         throw std::runtime_error("SQLite migration store requires an open database");
@@ -270,23 +310,14 @@ std::vector<int> SqliteMigrationStore::applied_versions() const {
 }
 
 void SqliteMigrationStore::apply(const SqliteMigration& migration) {
-    if (!database_->exec("BEGIN IMMEDIATE;")) {
-        throw std::runtime_error(database_->error());
-    }
+    SqliteTransaction transaction(database_);
 
     if (!database_->exec(migration.sql) ||
         !database_->exec("INSERT OR IGNORE INTO schema_migrations(version, name) VALUES(" +
                          std::to_string(migration.version) + ", " + quote_sql_text(migration.name) + ");")) {
-        const auto error = database_->error();
-        database_->exec("ROLLBACK;");
-        throw std::runtime_error(error);
+        throw std::runtime_error(database_->error());
     }
-
-    if (!database_->exec("COMMIT;")) {
-        const auto error = database_->error();
-        database_->exec("ROLLBACK;");
-        throw std::runtime_error(error);
-    }
+    transaction.commit();
 }
 
 }  // namespace tradingbot::persistence

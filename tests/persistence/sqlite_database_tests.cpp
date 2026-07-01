@@ -22,6 +22,11 @@ std::filesystem::path test_db_path(const std::string& name) {
     return path;
 }
 
+int count_rows(const tradingbot::persistence::SqliteDatabase& database, const std::string& table) {
+    const auto values = database.query_ints("SELECT COUNT(*) FROM " + table + ";");
+    return values.empty() ? 0 : values.front();
+}
+
 void opens_database_and_executes_sql() {
     const auto path = test_db_path("tradingbot_sqlite_database_open_test.sqlite3");
     {
@@ -30,6 +35,39 @@ void opens_database_and_executes_sql() {
         require(database.ok(), "database should open");
         require(database.exec("CREATE TABLE sample(id INTEGER PRIMARY KEY);"), "SQL should execute");
         require(database.table_exists("sample"), "created table should exist");
+    }
+
+    std::filesystem::remove(path);
+}
+
+void committed_transaction_persists_changes() {
+    const auto path = test_db_path("tradingbot_sqlite_database_transaction_commit_test.sqlite3");
+    {
+        auto database = std::make_shared<tradingbot::persistence::SqliteDatabase>(path.string());
+        require(database->exec("CREATE TABLE sample(id INTEGER PRIMARY KEY);"), "sample table should create");
+        {
+            tradingbot::persistence::SqliteTransaction transaction(database);
+            require(database->exec("INSERT INTO sample(id) VALUES(1);"), "insert inside transaction should work");
+            transaction.commit();
+        }
+
+        require(count_rows(*database, "sample") == 1, "committed transaction should persist row");
+    }
+
+    std::filesystem::remove(path);
+}
+
+void uncommitted_transaction_rolls_back_changes() {
+    const auto path = test_db_path("tradingbot_sqlite_database_transaction_rollback_test.sqlite3");
+    {
+        auto database = std::make_shared<tradingbot::persistence::SqliteDatabase>(path.string());
+        require(database->exec("CREATE TABLE sample(id INTEGER PRIMARY KEY);"), "sample table should create");
+        {
+            tradingbot::persistence::SqliteTransaction transaction(database);
+            require(database->exec("INSERT INTO sample(id) VALUES(1);"), "insert inside transaction should work");
+        }
+
+        require(count_rows(*database, "sample") == 0, "uncommitted transaction should roll back row");
     }
 
     std::filesystem::remove(path);
@@ -104,6 +142,8 @@ void migration_store_is_idempotent() {
 int main() {
     try {
         opens_database_and_executes_sql();
+        committed_transaction_persists_changes();
+        uncommitted_transaction_rolls_back_changes();
         reports_sql_errors();
         migration_store_applies_migrations_to_database();
         migration_store_is_idempotent();

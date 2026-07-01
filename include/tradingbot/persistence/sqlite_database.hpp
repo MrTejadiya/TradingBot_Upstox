@@ -33,6 +33,22 @@ private:
     std::string error_;
 };
 
+class SqliteTransaction {
+public:
+    explicit SqliteTransaction(std::shared_ptr<SqliteDatabase> database);
+    ~SqliteTransaction();
+
+    SqliteTransaction(const SqliteTransaction&) = delete;
+    SqliteTransaction& operator=(const SqliteTransaction&) = delete;
+
+    void commit();
+    void rollback();
+
+private:
+    std::shared_ptr<SqliteDatabase> database_;
+    bool closed_{false};
+};
+
 class SqliteMigrationStore final : public MigrationStore {
 public:
     explicit SqliteMigrationStore(std::shared_ptr<SqliteDatabase> database);

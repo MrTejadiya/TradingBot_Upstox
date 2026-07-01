@@ -114,6 +114,32 @@ void upsert_replaces_existing_row() {
     std::filesystem::remove(path);
 }
 
+void upsert_all_rolls_back_when_one_instrument_fails() {
+    const auto path = test_db_path("tradingbot_sqlite_instrument_store_batch_rollback.sqlite3");
+    {
+        auto database = migrated_database(path);
+        require(database->exec(
+                    "CREATE TRIGGER block_blocked_symbol BEFORE INSERT ON instruments "
+                    "WHEN NEW.symbol = 'BLOCKED' BEGIN SELECT RAISE(FAIL, 'blocked instrument'); END;"),
+                "blocking trigger should create");
+        tradingbot::persistence::SqliteInstrumentStore store(database);
+
+        bool threw = false;
+        try {
+            store.upsert_all({
+                instrument("NSE_EQ|INE002A01018", "RELIANCE"),
+                instrument("NSE_EQ|INE467B01029", "BLOCKED"),
+            });
+        } catch (const std::runtime_error& error) {
+            threw = std::string{error.what()}.find("blocked instrument") != std::string::npos;
+        }
+
+        require(threw, "blocked instrument should fail batch import");
+        require(store.load_all().empty(), "failed batch import should roll back earlier instruments");
+    }
+    std::filesystem::remove(path);
+}
+
 void malformed_persisted_row_reports_mapper_error() {
     const auto path = test_db_path("tradingbot_sqlite_instrument_store_malformed.sqlite3");
     {
@@ -143,6 +169,7 @@ int main() {
     empty_store_loads_empty_results();
     upserts_and_loads_instruments_in_key_order();
     upsert_replaces_existing_row();
+    upsert_all_rolls_back_when_one_instrument_fails();
     malformed_persisted_row_reports_mapper_error();
     return 0;
 }
