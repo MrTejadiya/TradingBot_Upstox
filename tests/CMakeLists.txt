@@ -272,6 +272,14 @@ target_link_libraries(tradingbot_live_candle_aggregator_tests PRIVATE tradingbot
 
 add_test(NAME tradingbot_live_candle_aggregator_tests COMMAND tradingbot_live_candle_aggregator_tests)
 
+add_executable(tradingbot_live_rsi_divergence_engine_tests
+    scan/live_rsi_divergence_engine_tests.cpp
+)
+
+target_link_libraries(tradingbot_live_rsi_divergence_engine_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_live_rsi_divergence_engine_tests COMMAND tradingbot_live_rsi_divergence_engine_tests)
+
 add_executable(tradingbot_provisional_rsi_divergence_scanner_tests
     scan/provisional_rsi_divergence_scanner_tests.cpp
 )
