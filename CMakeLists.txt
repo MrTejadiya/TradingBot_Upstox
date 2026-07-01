@@ -36,6 +36,7 @@ add_library(tradingbot_core
     src/infra/credentials.cpp
     src/infra/candle_service.cpp
     src/infra/instrument_csv.cpp
+    src/infra/live_scanner_config_mapper.cpp
     src/infra/logger.cpp
     src/infra/market_feed.cpp
     src/infra/market_quote_service.cpp
