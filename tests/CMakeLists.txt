@@ -264,6 +264,22 @@ target_link_libraries(tradingbot_worker_group_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_worker_group_tests COMMAND tradingbot_worker_group_tests)
 
+add_executable(tradingbot_live_candle_aggregator_tests
+    scan/live_candle_aggregator_tests.cpp
+)
+
+target_link_libraries(tradingbot_live_candle_aggregator_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_live_candle_aggregator_tests COMMAND tradingbot_live_candle_aggregator_tests)
+
+add_executable(tradingbot_provisional_rsi_divergence_scanner_tests
+    scan/provisional_rsi_divergence_scanner_tests.cpp
+)
+
+target_link_libraries(tradingbot_provisional_rsi_divergence_scanner_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_provisional_rsi_divergence_scanner_tests COMMAND tradingbot_provisional_rsi_divergence_scanner_tests)
+
 add_executable(tradingbot_sqlite_migrations_tests
     persistence/sqlite_migrations_tests.cpp
 )
