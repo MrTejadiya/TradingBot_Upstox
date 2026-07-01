@@ -286,6 +286,14 @@ target_link_libraries(tradingbot_decision_mapper_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_decision_mapper_tests COMMAND tradingbot_decision_mapper_tests)
 
+add_executable(tradingbot_instrument_mapper_tests
+    persistence/instrument_mapper_tests.cpp
+)
+
+target_link_libraries(tradingbot_instrument_mapper_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_instrument_mapper_tests COMMAND tradingbot_instrument_mapper_tests)
+
 add_executable(tradingbot_order_history_mapper_tests
     persistence/order_history_mapper_tests.cpp
 )
