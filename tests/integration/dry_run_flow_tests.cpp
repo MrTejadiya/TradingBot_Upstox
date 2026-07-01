@@ -85,10 +85,18 @@ void approved_dry_run_order_is_queued_dispatched_and_persisted() {
     tradingbot::persistence::InMemoryMigrationStore migrations;
     tradingbot::persistence::PersistenceWorker persistence(sink, migrations);
     require(persistence.start(), "persistence worker should start");
+    require(persistence.persist_strategy_signal(strategy_result.signals.front()),
+            "strategy signal should enqueue for persistence");
+    require(persistence.persist_decision(*aggregate.decision), "decision should enqueue for persistence");
+    require(context.quote && persistence.persist_quote_snapshot(*context.quote),
+            "quote snapshot should enqueue for persistence");
     require(persistence.persist_order(dispatch.record), "dry-run record should enqueue for persistence");
     require(persistence.persist_risk_event(risk), "risk event should enqueue for persistence");
     persistence.drain();
 
+    require(sink->strategy_signals().size() == 1, "strategy signal should persist");
+    require(sink->decisions().size() == 1, "decision should persist");
+    require(sink->quote_snapshots().size() == 1, "quote snapshot should persist");
     require(sink->orders().size() == 1, "dry-run order should persist");
     require(sink->risk_events().size() == 1, "risk event should persist");
     require(migrations.applied_migrations().size() == tradingbot::persistence::sqlite_migrations().size(),
@@ -101,4 +109,3 @@ int main() {
     approved_dry_run_order_is_queued_dispatched_and_persisted();
     return 0;
 }
-
