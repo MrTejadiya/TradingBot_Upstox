@@ -25,4 +25,10 @@ const PartitionedLiveCandleStore& LiveRsiDivergenceEngine::candle_store() const 
     return candle_store_;
 }
 
+void connect_market_feed(infra::MarketFeed& feed, LiveRsiDivergenceEngine& engine) {
+    feed.set_quote_handler([&engine](const core::QuoteSnapshot& quote) {
+        engine.on_quote(quote);
+    });
+}
+
 }  // namespace tradingbot::scan

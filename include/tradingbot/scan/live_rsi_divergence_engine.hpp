@@ -1,6 +1,7 @@
 #pragma once
 
 #include "tradingbot/core/domain.hpp"
+#include "tradingbot/infra/market_feed.hpp"
 #include "tradingbot/scan/live_candle_aggregator.hpp"
 #include "tradingbot/scan/provisional_rsi_divergence_scanner.hpp"
 
@@ -27,5 +28,7 @@ private:
     PartitionedLiveCandleStore candle_store_;
     ProvisionalRsiDivergenceScanner scanner_;
 };
+
+void connect_market_feed(infra::MarketFeed& feed, LiveRsiDivergenceEngine& engine);
 
 }  // namespace tradingbot::scan

@@ -103,11 +103,52 @@ void rejects_invalid_quotes_without_changing_scan_state() {
     require(!results[0].provisional, "invalid quote should not create provisional candle");
 }
 
+void connected_market_feed_updates_engine_from_messages() {
+    const auto key = std::string{"NSE_EQ|BULL"};
+    tradingbot::infra::UpstoxMarketFeed feed;
+    tradingbot::scan::LiveRsiDivergenceEngine engine({
+        .scanner = {.rsi_period = 3, .wing_size = 1, .worker_count = 1},
+        .partition_count = 1,
+    });
+    tradingbot::scan::connect_market_feed(feed, engine);
+
+    feed.on_message(R"json({"instrumentKey":"NSE_EQ|BULL","lastPrice":80.0,"timestamp":"1970-01-12T00:00:00+00:00"})json");
+    const auto results = engine.scan({
+        {.instrument = instrument(key, "BULL"),
+         .historical_candles = candles_from_closes(key, {100, 103, 101, 106, 98, 96, 94, 86, 88, 80, 82})},
+    });
+
+    require(results.size() == 1, "connected feed scan should return result");
+    require(results[0].provisional, "connected feed quote should create provisional candle");
+    require(results[0].bullish_divergence, "connected feed scan should detect bullish divergence");
+}
+
+void connected_market_feed_ignores_malformed_messages() {
+    const auto key = std::string{"NSE_EQ|BULL"};
+    tradingbot::infra::UpstoxMarketFeed feed;
+    tradingbot::scan::LiveRsiDivergenceEngine engine({
+        .scanner = {.rsi_period = 3, .wing_size = 1, .worker_count = 1},
+        .partition_count = 1,
+    });
+    tradingbot::scan::connect_market_feed(feed, engine);
+
+    feed.on_message(R"json({"instrumentKey":"NSE_EQ|BULL"})json");
+    const auto results = engine.scan({
+        {.instrument = instrument(key, "BULL"),
+         .historical_candles = candles_from_closes(key, {100, 103, 101, 106, 98, 96, 94, 86, 88, 80, 82})},
+    });
+
+    require(results.size() == 1, "malformed feed scan should return result");
+    require(!results[0].provisional, "malformed feed message should not create provisional candle");
+}
+
 }  // namespace
 
 int main() {
     defaults_partition_count_to_available_workers();
     scans_with_quote_driven_provisional_candle();
     rejects_invalid_quotes_without_changing_scan_state();
+    connected_market_feed_updates_engine_from_messages();
+    connected_market_feed_ignores_malformed_messages();
     return 0;
 }
