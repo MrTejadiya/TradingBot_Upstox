@@ -101,3 +101,6 @@ defaults of 09:15-15:30 and a conservative last-order cutoff before close.
 
 Order requests are queued with deterministic priority ordering, FIFO
 tie-breaking, peek/pop semantics, and cancellation support.
+
+Rate-limited API executors use a deterministic sliding window limiter with
+retry-after feedback and callback execution only when capacity is available.

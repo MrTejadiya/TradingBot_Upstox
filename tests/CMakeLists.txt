@@ -181,3 +181,11 @@ add_executable(tradingbot_order_queue_tests
 target_link_libraries(tradingbot_order_queue_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_order_queue_tests COMMAND tradingbot_order_queue_tests)
+
+add_executable(tradingbot_rate_limited_executor_tests
+    order/rate_limited_executor_tests.cpp
+)
+
+target_link_libraries(tradingbot_rate_limited_executor_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_rate_limited_executor_tests COMMAND tradingbot_rate_limited_executor_tests)
