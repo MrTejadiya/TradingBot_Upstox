@@ -37,6 +37,7 @@ add_library(tradingbot_core
     src/persistence/decision_mapper.cpp
     src/persistence/order_history_mapper.cpp
     src/persistence/persistence_worker.cpp
+    src/persistence/quote_snapshot_mapper.cpp
     src/persistence/risk_event_mapper.cpp
     src/persistence/sqlite_migrations.cpp
     src/persistence/strategy_signal_mapper.cpp
