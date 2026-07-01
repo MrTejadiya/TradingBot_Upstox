@@ -73,6 +73,7 @@ add_library(tradingbot_core
     src/scan/live_rsi_divergence_engine.cpp
     src/scan/live_scanner_decision_pipeline.cpp
     src/scan/live_scanner_persistence.cpp
+    src/scan/live_scanner_runtime_cycle.cpp
     src/scan/live_scanner_ranking_pipeline.cpp
     src/scan/macd_crossover_signal_scanner.cpp
     src/scan/provisional_rsi_divergence_scanner.cpp

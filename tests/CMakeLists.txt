@@ -312,6 +312,14 @@ target_link_libraries(tradingbot_live_scanner_persistence_tests PRIVATE tradingb
 
 add_test(NAME tradingbot_live_scanner_persistence_tests COMMAND tradingbot_live_scanner_persistence_tests)
 
+add_executable(tradingbot_live_scanner_runtime_cycle_tests
+    scan/live_scanner_runtime_cycle_tests.cpp
+)
+
+target_link_libraries(tradingbot_live_scanner_runtime_cycle_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_live_scanner_runtime_cycle_tests COMMAND tradingbot_live_scanner_runtime_cycle_tests)
+
 add_executable(tradingbot_live_scanner_ranking_pipeline_tests
     scan/live_scanner_ranking_pipeline_tests.cpp
 )
