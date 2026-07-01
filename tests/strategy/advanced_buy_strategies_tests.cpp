@@ -25,7 +25,7 @@ void require_optional_near(const std::optional<double>& actual, double expected,
 std::vector<tradingbot::core::Candle> candles_from_closes(const std::vector<double>& closes) {
     std::vector<tradingbot::core::Candle> candles;
     for (const auto close : closes) {
-        candles.push_back({.instrument_key = {"NSE_EQ|INE002A01018"}, .close = close, .volume = 1000});
+        candles.push_back({.instrument_key = {"NSE_EQ|INE002A01018"}, .high = close, .close = close, .volume = 1000});
     }
     return candles;
 }
@@ -97,10 +97,50 @@ void ema_crossover_skips_when_data_is_insufficient() {
             "skip diagnostic should mention insufficient data");
 }
 
+void breakout_emits_buy_signal_when_price_clears_resistance() {
+    auto context = sample_context();
+    context.candles = candles_from_closes({100.0, 104.0, 103.0, 105.0, 108.0});
+    context.quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 108.0};
+
+    const auto evaluation =
+        tradingbot::strategy::BreakoutBuyStrategy{{.lookback_period = 4, .breakout_pct = 2.0}}.evaluate(context);
+
+    require(evaluation.signals.size() == 1, "breakout should emit a signal above resistance threshold");
+    const auto& signal = evaluation.signals.front();
+    require(tradingbot::strategy::is_actionable_signal(signal), "breakout signal should be actionable");
+    require(signal.strategy_name == "breakout_buy", "signal should identify breakout strategy");
+    require(signal.suggested_entry_price == 108.0, "entry should use fresh quote");
+    require(signal.reason.find("cleared resistance") != std::string::npos, "reason should explain breakout");
+}
+
+void breakout_skips_when_price_has_not_cleared_threshold() {
+    auto context = sample_context();
+    context.candles = candles_from_closes({100.0, 104.0, 103.0, 105.0, 106.0});
+    context.quote = tradingbot::core::QuoteSnapshot{.instrument_key = {"NSE_EQ|INE002A01018"}, .ltp = 106.0};
+
+    const auto evaluation =
+        tradingbot::strategy::BreakoutBuyStrategy{{.lookback_period = 4, .breakout_pct = 2.0}}.evaluate(context);
+
+    require(evaluation.signals.empty(), "breakout should skip below threshold");
+    require(evaluation.diagnostics.front().find("threshold") != std::string::npos,
+            "skip diagnostic should explain threshold");
+}
+
+void breakout_skips_when_data_is_insufficient() {
+    auto context = sample_context();
+    context.candles = candles_from_closes({100.0, 108.0});
+
+    const auto evaluation =
+        tradingbot::strategy::BreakoutBuyStrategy{{.lookback_period = 4, .breakout_pct = 2.0}}.evaluate(context);
+
+    require(evaluation.signals.empty(), "breakout should skip insufficient data");
+    require(evaluation.diagnostics.front().find("insufficient") != std::string::npos,
+            "skip diagnostic should mention insufficient data");
+}
+
 void remaining_placeholders_emit_diagnostics_but_no_signals() {
     const auto context = sample_context();
     std::vector<std::unique_ptr<tradingbot::strategy::Strategy>> strategies;
-    strategies.push_back(std::make_unique<tradingbot::strategy::BreakoutBuyStrategy>());
     strategies.push_back(std::make_unique<tradingbot::strategy::VolumeSurgeBuyStrategy>());
 
     for (const auto& strategy : strategies) {
@@ -131,6 +171,9 @@ int main() {
     ema_crossover_emits_buy_signal_on_bullish_cross();
     ema_crossover_skips_when_cross_is_not_confirmed();
     ema_crossover_skips_when_data_is_insufficient();
+    breakout_emits_buy_signal_when_price_clears_resistance();
+    breakout_skips_when_price_has_not_cleared_threshold();
+    breakout_skips_when_data_is_insufficient();
     remaining_placeholders_emit_diagnostics_but_no_signals();
     invalid_configuration_is_reported();
     return 0;

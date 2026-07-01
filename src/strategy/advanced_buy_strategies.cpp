@@ -2,6 +2,7 @@
 
 #include "tradingbot/strategy/indicators.hpp"
 
+#include <algorithm>
 #include <optional>
 #include <sstream>
 #include <utility>
@@ -64,6 +65,10 @@ core::StrategySignal build_buy_signal(const StrategyContext& context, const std:
     };
 }
 
+core::Money resistance_value(const core::Candle& candle) {
+    return candle.high > 0.0 ? candle.high : candle.close;
+}
+
 }  // namespace
 
 EmaCrossoverBuyStrategy::EmaCrossoverBuyStrategy(EmaCrossoverConfig config) : config_(config) {}
@@ -124,10 +129,44 @@ std::string BreakoutBuyStrategy::name() const {
 }
 
 StrategyEvaluation BreakoutBuyStrategy::evaluate(const StrategyContext& context) const {
-    if (config_.lookback_period <= 0 || config_.breakout_pct <= 0.0) {
-        return placeholder_evaluation(context, name(), "invalid breakout configuration");
+    StrategyEvaluation evaluation;
+    if (!can_buy(context)) {
+        evaluation.diagnostics.push_back("breakout buy skipped: instrument is disabled or quantity/key is invalid");
+        return evaluation;
     }
-    return placeholder_evaluation(context, name(), "rule not enabled until breakout confirmation is implemented");
+    if (config_.lookback_period <= 0 || config_.breakout_pct <= 0.0) {
+        evaluation.diagnostics.push_back("breakout buy skipped: invalid breakout configuration");
+        return evaluation;
+    }
+    if (context.candles.size() < static_cast<std::size_t>(config_.lookback_period + 1)) {
+        evaluation.diagnostics.push_back("breakout buy skipped: insufficient candle data");
+        return evaluation;
+    }
+
+    const auto prior_begin = context.candles.end() - (config_.lookback_period + 1);
+    const auto prior_end = context.candles.end() - 1;
+    const auto resistance = std::max_element(prior_begin, prior_end, [](const auto& left, const auto& right) {
+        return resistance_value(left) < resistance_value(right);
+    });
+
+    const auto price = entry_price(context);
+    if (!price) {
+        evaluation.diagnostics.push_back("breakout buy skipped: no quote or close price available");
+        return evaluation;
+    }
+
+    const auto resistance_price = resistance_value(*resistance);
+    const auto trigger_price = resistance_price * (1.0 + (config_.breakout_pct / 100.0));
+    if (*price < trigger_price) {
+        evaluation.diagnostics.push_back("breakout buy skipped: price has not cleared resistance threshold");
+        return evaluation;
+    }
+
+    std::ostringstream reason;
+    reason << "price " << *price << " cleared resistance " << resistance_price << " by at least "
+           << config_.breakout_pct << "%";
+    evaluation.signals.push_back(build_buy_signal(context, name(), 0.78, reason.str(), *price));
+    return evaluation;
 }
 
 VolumeSurgeBuyStrategy::VolumeSurgeBuyStrategy(VolumeSurgeConfig config) : config_(config) {}
