@@ -116,3 +116,6 @@ Order monitoring maps Upstox order-book statuses into terminal/non-terminal
 
 Runtime worker groups provide thread-safe task submission, drain/stop behavior,
 and exception capture for background processing.
+
+SQLite persistence starts with ordered, idempotent migrations for bot runs,
+orders, risk events, strategy signals, audit events, and lookup indexes.
