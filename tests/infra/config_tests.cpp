@@ -37,6 +37,21 @@ std::string valid_config_json() {
             "sell_signal_mode": "first_exit_wins",
             "min_buy_score": 0.65
         },
+        "live_scanner": {
+            "worker_count": 0,
+            "partition_count": 16,
+            "rsi_period": 14,
+            "wing_size": 2,
+            "macd_fast_period": 12,
+            "macd_slow_period": 26,
+            "macd_signal_period": 9,
+            "minimum_score": 0.75,
+            "top_n": 25,
+            "strategy_weights": {
+                "rsi_divergence": 1.0,
+                "macd_bullish_cross": 1.3
+            }
+        },
         "exit_rules": {
             "default_target_profit_pct": 10.0,
             "default_stop_loss_pct": 3.0,
@@ -73,6 +88,17 @@ void loads_valid_json_config() {
     require(result.config.market_data.candle_intervals.size() == 3, "candle intervals should parse");
     require(result.config.market_data.max_quote_age_seconds == 300.0, "quote freshness should parse");
     require(result.config.strategies.buy_signal_mode == "weighted_score", "buy signal mode should parse");
+    require(result.config.live_scanner.worker_count == 0, "scanner worker count should preserve CPU-default sentinel");
+    require(result.config.live_scanner.partition_count == 16, "scanner partition count should parse");
+    require(result.config.live_scanner.rsi_period == 14, "scanner RSI period should parse");
+    require(result.config.live_scanner.wing_size == 2, "scanner wing size should parse");
+    require(result.config.live_scanner.macd_fast_period == 12, "scanner MACD fast period should parse");
+    require(result.config.live_scanner.macd_slow_period == 26, "scanner MACD slow period should parse");
+    require(result.config.live_scanner.macd_signal_period == 9, "scanner MACD signal period should parse");
+    require(result.config.live_scanner.minimum_score == 0.75, "scanner minimum score should parse");
+    require(result.config.live_scanner.top_n == 25, "scanner top-N should parse");
+    require(result.config.live_scanner.strategy_weights.at("macd_bullish_cross") == 1.3,
+            "scanner strategy weights should parse");
     require(result.config.exit_rules.default_target_profit_pct == 10.0, "target profit should parse");
     require(result.config.exit_rules.max_holding_duration_hours == 720.0, "max holding duration should parse");
     require(result.config.risk.max_orders_per_day == 20, "daily order count should parse");
@@ -123,6 +149,51 @@ void rejects_unknown_mode() {
     require(found, "mode validation error should be reported");
 }
 
+void rejects_invalid_live_scanner_values() {
+    auto json = valid_config_json();
+    const auto from = std::string{"\"rsi_period\": 14"};
+    const auto to = std::string{"\"rsi_period\": 0"};
+    json.replace(json.find(from), from.size(), to);
+
+    const auto result = tradingbot::infra::load_config_from_json(json);
+
+    require(!result.ok, "invalid scanner RSI period should fail");
+    bool found = false;
+    for (const auto& error : result.errors) {
+        found = found || error.find("live_scanner.rsi_period") != std::string::npos;
+    }
+    require(found, "scanner period validation error should be reported");
+}
+
+void rejects_invalid_live_scanner_weights() {
+    auto json = valid_config_json();
+    const auto from = std::string{"\"macd_bullish_cross\": 1.3"};
+    const auto to = std::string{"\"macd_bullish_cross\": -1.3"};
+    json.replace(json.find(from), from.size(), to);
+
+    const auto result = tradingbot::infra::load_config_from_json(json);
+
+    require(!result.ok, "negative scanner weight should fail");
+    bool found = false;
+    for (const auto& error : result.errors) {
+        found = found || error.find("live_scanner.strategy_weights") != std::string::npos;
+    }
+    require(found, "scanner weight validation error should be reported");
+}
+
+void allows_missing_live_scanner_section() {
+    auto json = valid_config_json();
+    const auto start = json.find("        \"live_scanner\": {");
+    const auto end = json.find("        \"exit_rules\": {");
+    json.erase(start, end - start);
+
+    const auto result = tradingbot::infra::load_config_from_json(json);
+
+    require(result.ok, "missing optional live_scanner section should still load");
+    require(result.config.live_scanner.worker_count == 0, "missing scanner config should keep defaults");
+    require(result.config.live_scanner.rsi_period == 14, "missing scanner config should keep RSI default");
+}
+
 void rejects_invalid_json() {
     const auto result = tradingbot::infra::load_config_from_json("{ not json");
 
@@ -152,6 +223,9 @@ int main() {
     reports_missing_required_sections();
     rejects_invalid_live_flag_type();
     rejects_unknown_mode();
+    rejects_invalid_live_scanner_values();
+    rejects_invalid_live_scanner_weights();
+    allows_missing_live_scanner_section();
     rejects_invalid_json();
     loads_config_from_file();
     return 0;

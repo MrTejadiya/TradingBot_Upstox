@@ -2,7 +2,9 @@
 
 #include "tradingbot/app/cli.hpp"
 
+#include <cstddef>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace tradingbot::infra {
@@ -30,6 +32,19 @@ struct StrategiesConfig {
     std::string buy_signal_mode;
     std::string sell_signal_mode;
     double min_buy_score{0.0};
+};
+
+struct LiveScannerConfig {
+    std::size_t worker_count{0};
+    std::size_t partition_count{0};
+    int rsi_period{14};
+    int wing_size{1};
+    int macd_fast_period{12};
+    int macd_slow_period{26};
+    int macd_signal_period{9};
+    double minimum_score{0.0};
+    std::size_t top_n{0};
+    std::unordered_map<std::string, double> strategy_weights;
 };
 
 struct ExitRulesConfig {
@@ -62,6 +77,7 @@ struct BotConfig {
     InputConfig input;
     MarketDataConfig market_data;
     StrategiesConfig strategies;
+    LiveScannerConfig live_scanner;
     ExitRulesConfig exit_rules;
     RiskConfig risk;
     RateLimitsConfig rate_limits;

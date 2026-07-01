@@ -306,6 +306,27 @@ std::optional<std::vector<std::string>> string_array_at(const JsonObject& object
     return strings;
 }
 
+std::optional<std::map<std::string, double>> number_object_at(const JsonObject& object, const std::string& key) {
+    const auto* value = find_key(object, key);
+    if (value == nullptr) {
+        return std::nullopt;
+    }
+    const auto* nested = as_object(*value);
+    if (nested == nullptr) {
+        return std::nullopt;
+    }
+
+    std::map<std::string, double> numbers;
+    for (const auto& [name, item] : *nested) {
+        const auto* number = std::get_if<double>(&item.value);
+        if (number == nullptr) {
+            return std::nullopt;
+        }
+        numbers.emplace(name, *number);
+    }
+    return numbers;
+}
+
 app::Mode parse_mode_or_default(const std::string& value, std::vector<std::string>& errors) {
     if (value == "validate") {
         return app::Mode::Validate;
@@ -370,6 +391,16 @@ int require_positive_int(const JsonObject& object, const std::string& path, cons
     return static_cast<int>(*value);
 }
 
+std::size_t require_non_negative_int(const JsonObject& object, const std::string& path, const std::string& key,
+                                     std::vector<std::string>& errors) {
+    auto value = number_at(object, key);
+    if (!value || *value < 0.0 || static_cast<std::size_t>(*value) != *value) {
+        errors.push_back(path + "." + key + " must be a non-negative integer");
+        return 0;
+    }
+    return static_cast<std::size_t>(*value);
+}
+
 }  // namespace
 
 ConfigLoadResult load_config_file(const std::string& path) {
@@ -404,6 +435,14 @@ ConfigLoadResult load_config_from_json(const std::string& json_text) {
     const auto* input = require_section(*root, "input", result.errors);
     const auto* market_data = require_section(*root, "market_data", result.errors);
     const auto* strategies = require_section(*root, "strategies", result.errors);
+    const auto* live_scanner_value = find_key(*root, "live_scanner");
+    const JsonObject* live_scanner = nullptr;
+    if (live_scanner_value != nullptr) {
+        live_scanner = as_object(*live_scanner_value);
+        if (live_scanner == nullptr) {
+            result.errors.push_back("section must be an object: live_scanner");
+        }
+    }
     const auto* exit_rules = require_section(*root, "exit_rules", result.errors);
     const auto* risk = require_section(*root, "risk", result.errors);
     const auto* rate_limits = require_section(*root, "rate_limits", result.errors);
@@ -443,6 +482,38 @@ ConfigLoadResult load_config_from_json(const std::string& json_text) {
         result.config.strategies.sell_signal_mode = require_string(*strategies, "strategies", "sell_signal_mode", result.errors);
         result.config.strategies.min_buy_score =
             require_non_negative_number(*strategies, "strategies", "min_buy_score", result.errors);
+    }
+    if (live_scanner != nullptr) {
+        result.config.live_scanner.worker_count =
+            require_non_negative_int(*live_scanner, "live_scanner", "worker_count", result.errors);
+        result.config.live_scanner.partition_count =
+            require_non_negative_int(*live_scanner, "live_scanner", "partition_count", result.errors);
+        result.config.live_scanner.rsi_period =
+            require_positive_int(*live_scanner, "live_scanner", "rsi_period", result.errors);
+        result.config.live_scanner.wing_size =
+            require_positive_int(*live_scanner, "live_scanner", "wing_size", result.errors);
+        result.config.live_scanner.macd_fast_period =
+            require_positive_int(*live_scanner, "live_scanner", "macd_fast_period", result.errors);
+        result.config.live_scanner.macd_slow_period =
+            require_positive_int(*live_scanner, "live_scanner", "macd_slow_period", result.errors);
+        result.config.live_scanner.macd_signal_period =
+            require_positive_int(*live_scanner, "live_scanner", "macd_signal_period", result.errors);
+        result.config.live_scanner.minimum_score =
+            require_non_negative_number(*live_scanner, "live_scanner", "minimum_score", result.errors);
+        result.config.live_scanner.top_n =
+            require_non_negative_int(*live_scanner, "live_scanner", "top_n", result.errors);
+        const auto weights = number_object_at(*live_scanner, "strategy_weights");
+        if (!weights) {
+            result.errors.push_back("live_scanner.strategy_weights must be an object of numeric weights");
+        } else {
+            for (const auto& [name, weight] : *weights) {
+                if (name.empty() || weight < 0.0) {
+                    result.errors.push_back("live_scanner.strategy_weights must use non-empty names and non-negative weights");
+                    break;
+                }
+                result.config.live_scanner.strategy_weights.emplace(name, weight);
+            }
+        }
     }
     if (exit_rules != nullptr) {
         result.config.exit_rules.default_target_profit_pct =
