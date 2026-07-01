@@ -69,7 +69,8 @@ Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.
 
 The strategy module includes baseline technical indicators over candle close
-prices: SMA, EMA, RSI, and MACD.
+prices: SMA, EMA, RSI, MACD, pivots, divergence checks, and support/resistance
+trendlines.
 
 Strategies share a common evaluation interface with instrument, candles, quote,
 and portfolio context, returning validated strategy signals plus diagnostics.
@@ -128,3 +129,8 @@ prints an explicit empty state when no orders are available.
 
 Dry-run integration coverage connects strategy signal generation, aggregation,
 risk approval, order queuing, dry-run dispatch, and persistence without broker calls.
+
+## Live Trading Readiness
+
+Live trading must remain disabled until the manual acceptance checklist is
+completed: [docs/live_trading_acceptance_checklist.md](docs/live_trading_acceptance_checklist.md).
