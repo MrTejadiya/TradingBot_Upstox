@@ -1,5 +1,7 @@
 #include "tradingbot/infra/candle_service.hpp"
 
+#include <chrono>
+#include <ctime>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -53,6 +55,21 @@ std::string valid_candle_body() {
     })json";
 }
 
+std::time_t utc_epoch(int year, int month, int day, int hour, int minute, int second) {
+    std::tm utc{};
+    utc.tm_year = year - 1900;
+    utc.tm_mon = month - 1;
+    utc.tm_mday = day;
+    utc.tm_hour = hour;
+    utc.tm_min = minute;
+    utc.tm_sec = second;
+#ifdef _WIN32
+    return _mkgmtime(&utc);
+#else
+    return timegm(&utc);
+#endif
+}
+
 void builds_historical_candle_path() {
     const auto path = tradingbot::infra::historical_candle_path(query());
 
@@ -75,6 +92,9 @@ void parses_ohlcv_candles() {
     require(result.candles.front().low == 95.0, "low should parse");
     require(result.candles.front().close == 105.0, "close should parse");
     require(result.candles.front().volume == 12345, "volume should parse");
+    require(tradingbot::core::Clock::to_time_t(result.candles.front().timestamp) ==
+                utc_epoch(2026, 6, 29, 18, 30, 0),
+            "timestamp should convert from +05:30 to UTC");
 }
 
 void rejects_missing_candles() {
@@ -87,6 +107,25 @@ void rejects_missing_candles() {
 
     require(!result.ok, "missing candles should fail");
     require(result.error.find("candles") != std::string::npos, "error should mention candles");
+}
+
+void rejects_malformed_candle_timestamp() {
+    tradingbot::infra::ApiResult api_result;
+    api_result.ok = true;
+    api_result.response.status_code = 200;
+    api_result.response.body = R"json({
+        "status": "success",
+        "data": {
+            "candles": [
+                ["not-a-time", 100.0, 110.0, 95.0, 105.0, 12345]
+            ]
+        }
+    })json";
+
+    const auto result = tradingbot::infra::parse_historical_candle_response(query(), api_result);
+
+    require(!result.ok, "malformed candle timestamp should fail");
+    require(result.error.find("timestamp") != std::string::npos, "error should mention timestamp");
 }
 
 void uses_cache_after_first_fetch() {
@@ -112,7 +151,7 @@ int main() {
     builds_historical_candle_path();
     parses_ohlcv_candles();
     rejects_missing_candles();
+    rejects_malformed_candle_timestamp();
     uses_cache_after_first_fetch();
     return 0;
 }
-
