@@ -49,6 +49,7 @@ std::vector<ScannerCandidateRank> rank_scanner_signals(const std::vector<core::S
             candidate.strategy_names.push_back(signal.strategy_name);
         }
         if (!candidate.suggested_entry_price || signal.confidence >= candidate.strongest_confidence) {
+            candidate.suggested_quantity = signal.suggested_quantity;
             candidate.suggested_entry_price = signal.suggested_entry_price;
         }
     }

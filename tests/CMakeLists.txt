@@ -168,6 +168,14 @@ target_link_libraries(tradingbot_signal_aggregation_tests PRIVATE tradingbot_cor
 
 add_test(NAME tradingbot_signal_aggregation_tests COMMAND tradingbot_signal_aggregation_tests)
 
+add_executable(tradingbot_scanner_candidate_selector_tests
+    strategy/scanner_candidate_selector_tests.cpp
+)
+
+target_link_libraries(tradingbot_scanner_candidate_selector_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_scanner_candidate_selector_tests COMMAND tradingbot_scanner_candidate_selector_tests)
+
 add_executable(tradingbot_scanner_signal_ranker_tests
     strategy/scanner_signal_ranker_tests.cpp
 )

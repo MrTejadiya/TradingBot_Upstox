@@ -51,6 +51,7 @@ void ranks_buy_candidates_by_weighted_scanner_score() {
     require_near(ranked[0].score, 0.91, 0.000001, "rank score should apply scanner weight");
     require(ranked[0].suggested_entry_price && *ranked[0].suggested_entry_price == 202.0,
             "rank should retain strongest signal price");
+    require(ranked[0].suggested_quantity == 1, "rank should retain suggested quantity");
     require(ranked[0].ranked_at == tradingbot::core::TimePoint{std::chrono::seconds{7}},
             "rank timestamp should be retained");
 }

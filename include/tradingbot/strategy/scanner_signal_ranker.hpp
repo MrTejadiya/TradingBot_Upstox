@@ -23,6 +23,7 @@ struct ScannerCandidateRank {
     double strongest_confidence{0.0};
     std::size_t signal_count{0};
     std::vector<std::string> strategy_names;
+    core::Quantity suggested_quantity{0};
     std::optional<core::Money> suggested_entry_price;
     core::TimePoint ranked_at{};
 };
