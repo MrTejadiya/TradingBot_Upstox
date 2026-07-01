@@ -173,3 +173,11 @@ add_executable(tradingbot_market_session_tests
 target_link_libraries(tradingbot_market_session_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_market_session_tests COMMAND tradingbot_market_session_tests)
+
+add_executable(tradingbot_order_queue_tests
+    order/order_queue_tests.cpp
+)
+
+target_link_libraries(tradingbot_order_queue_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_order_queue_tests COMMAND tradingbot_order_queue_tests)

@@ -25,6 +25,7 @@ add_library(tradingbot_core
     src/infra/market_quote_service.cpp
     src/infra/portfolio_sync_service.cpp
     src/infra/upstox_api_client.cpp
+    src/order/order_queue.cpp
     src/strategy/advanced_buy_strategies.cpp
     src/strategy/buy_strategies.cpp
     src/strategy/exit_engine.cpp

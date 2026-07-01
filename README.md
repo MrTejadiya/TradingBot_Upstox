@@ -98,3 +98,6 @@ or external stop triggers.
 
 Market session checks use configurable local time windows with delivery-equity
 defaults of 09:15-15:30 and a conservative last-order cutoff before close.
+
+Order requests are queued with deterministic priority ordering, FIFO
+tie-breaking, peek/pop semantics, and cancellation support.
