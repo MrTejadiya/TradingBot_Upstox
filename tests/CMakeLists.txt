@@ -229,3 +229,11 @@ add_executable(tradingbot_sqlite_migrations_tests
 target_link_libraries(tradingbot_sqlite_migrations_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_sqlite_migrations_tests COMMAND tradingbot_sqlite_migrations_tests)
+
+add_executable(tradingbot_persistence_worker_tests
+    persistence/persistence_worker_tests.cpp
+)
+
+target_link_libraries(tradingbot_persistence_worker_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_persistence_worker_tests COMMAND tradingbot_persistence_worker_tests)

@@ -119,3 +119,6 @@ and exception capture for background processing.
 
 SQLite persistence starts with ordered, idempotent migrations for bot runs,
 orders, risk events, strategy signals, audit events, and lookup indexes.
+
+The persistence worker applies pending migrations and asynchronously writes
+orders, risk events, and audit events through a sink abstraction.
