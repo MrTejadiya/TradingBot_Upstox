@@ -44,6 +44,7 @@ add_library(tradingbot_core
     src/infra/portfolio_sync_service.cpp
     src/infra/time_utils.cpp
     src/infra/upstox_api_client.cpp
+    src/infra/upstox_instrument_json_cache.cpp
     src/infra/upstox_instrument_json.cpp
     src/order/dry_run_dispatcher.cpp
     src/order/live_order_dispatcher.cpp
