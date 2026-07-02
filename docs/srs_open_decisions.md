@@ -110,3 +110,24 @@ Implementation references:
 - `tests/app/app_runner_tests.cpp`
 - `scripts/live_rsi_divergence_scan.py`
 - `tests/scripts/live_rsi_divergence_scan_tests.py`
+
+## Decision 7: Complete Upstox Instrument Universe
+
+Decision: support a local Upstox complete instrument JSON file as an alternate
+instrument source through `input.instrument_source=upstox_json`, while keeping
+manual CSV as the default. Version 1 imports only `NSE_EQ` and `BSE_EQ` records
+with `instrument_type=EQ`; unsupported records are skipped.
+
+Rationale: Upstox publishes beginning-of-day instrument files and recommends
+JSON instrument data for robustness and future scalability. Using a local file
+keeps startup deterministic and testable while allowing the scanner universe to
+come from the broker's full instrument list.
+
+Implementation references:
+
+- `include/tradingbot/infra/upstox_instrument_json.hpp`
+- `src/infra/upstox_instrument_json.cpp`
+- `src/app/app_runner.cpp`
+- `config.example.json`
+- `tests/infra/upstox_instrument_json_tests.cpp`
+- `tests/app/app_runner_tests.cpp`

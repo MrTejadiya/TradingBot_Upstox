@@ -71,10 +71,12 @@ trading day when the caller supplies the current daily traded value.
 Start from `config.example.json` and provide access tokens through the configured
 environment variable, not in the config file.
 
-`input.instruments_csv` points to the configured instrument universe. When the
-path is relative, configured app runs resolve it relative to the config file
-location. For SQLite-backed non-reporting modes, the app loads this CSV before
-the mode runs and upserts the instrument rows into SQLite.
+`input.instrument_source` selects the configured instrument universe source.
+Use `csv` for a manually curated CSV file or `upstox_json` for a local copy of
+the Upstox complete instrument JSON file. When source paths are relative,
+configured app runs resolve them relative to the config file location. For
+SQLite-backed non-reporting modes, the app loads the configured source before
+the mode runs and upserts normalized instrument rows into SQLite.
 
 Set `upstox.force_ipv4=true` for live/order API traffic when the Upstox static
 IP allowlist is configured with IPv4 addresses. The RK9311-29 broker test showed
@@ -94,6 +96,41 @@ Exact duplicate `instrument_key` rows are invalid. When an NSE and BSE listing
 share the same equity identity, such as `NSE_EQ|INE...` and `BSE_EQ|INE...`,
 the loader keeps the NSE row and drops the BSE duplicate. A BSE row is retained
 when no matching NSE row is present.
+
+## Upstox Instrument JSON
+
+Upstox publishes beginning-of-day instrument files, including a complete JSON
+file, in the Instruments API documentation:
+https://upstox.com/developer/api-documentation/instruments/
+
+To use the full Upstox universe, download the complete JSON file locally and
+point the config at that file:
+
+```json
+"input": {
+  "instrument_source": "upstox_json",
+  "upstox_instruments_json": "data/upstox_complete.json",
+  "default_enabled": true,
+  "default_quantity": 1,
+  "default_max_position_qty": 1,
+  "default_target_profit_pct": 10.0,
+  "default_strategy_profile": "",
+  "default_notes": "imported from Upstox instrument JSON"
+}
+```
+
+The JSON importer currently accepts only equity delivery candidates where
+`segment` is `NSE_EQ` or `BSE_EQ` and `instrument_type` is `EQ`. Unsupported
+records, such as FO, MCX, indexes, mutual funds, or other non-equity records,
+are skipped. Exact duplicate `instrument_key` values are rejected. If the same
+equity identity is listed on both NSE and BSE, the importer keeps the NSE key
+and drops the BSE duplicate; BSE is retained only when no matching NSE listing
+is present.
+
+The configured `default_*` fields generate the trading controls for imported
+records because the Upstox instrument file does not contain bot-specific
+quantity, max-position, target, profile, or notes settings. Review these values
+carefully before any live-trading run.
 
 ## Logging
 

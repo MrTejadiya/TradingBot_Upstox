@@ -37,7 +37,8 @@ Evidence:
 ## Scope Confirmation
 
 - [ ] Bot is limited to Indian equity delivery orders for version 1.
-- [ ] Instrument CSV contains only intended equity delivery instruments.
+- [ ] Configured instrument source is reviewed: `csv` for curated instruments or `upstox_json` for a local Upstox complete instrument file.
+- [ ] Configured instrument universe contains only intended equity delivery instruments after importer filtering.
 - [ ] No intraday, margin, futures and options, commodity, mutual fund, high-frequency, or multi-broker workflow is enabled.
 - [ ] Order payloads use `product=D` and `validity=DAY`.
 - [ ] Default order type remains `LIMIT`.
@@ -59,8 +60,10 @@ Evidence:
 
 ## Data And Strategy Readiness
 
-- [ ] CSV validation passes with exact duplicate instrument keys rejected.
+- [ ] Instrument source validation passes with exact duplicate instrument keys rejected.
 - [ ] NSE/BSE duplicate listings for the same equity are collapsed to the NSE key; BSE is used only when no NSE listing is present.
+- [ ] If `input.instrument_source=upstox_json`, the Upstox JSON file date/source is recorded and unsupported records are confirmed skipped.
+- [ ] If `input.instrument_source=upstox_json`, `default_enabled`, `default_quantity`, `default_max_position_qty`, `default_target_profit_pct`, `default_strategy_profile`, and `default_notes` are reviewed.
 - [ ] All enabled instruments have intended quantity, max position, target, and stop-loss values.
 - [ ] Market data freshness checks reject stale, missing, or malformed quotes/candles.
 - [ ] Strategy profile selection is reviewed per instrument.
@@ -118,6 +121,7 @@ Evidence:
 ## Reference Links
 
 - Upstox static IP and algo-name announcement: https://upstox.com/developer/api-documentation/announcements/algo-trading-circular/
+- Upstox instrument files: https://upstox.com/developer/api-documentation/instruments/
 - Upstox API rate limits: https://upstox.com/developer/api-documentation/rate-limiting/
 - Upstox Place Order V3: https://upstox.com/developer/api-documentation/v3/place-order/
 - Upstox GTT order restrictions and related static-IP/algo-name errors: https://upstox.com/developer/api-documentation/place-gtt-order/
