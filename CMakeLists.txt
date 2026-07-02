@@ -36,6 +36,7 @@ add_library(tradingbot_core
     src/infra/credentials.cpp
     src/infra/candle_service.cpp
     src/infra/instrument_csv.cpp
+    src/infra/instrument_universe.cpp
     src/infra/live_scanner_config_mapper.cpp
     src/infra/logger.cpp
     src/infra/market_feed.cpp
@@ -43,6 +44,7 @@ add_library(tradingbot_core
     src/infra/portfolio_sync_service.cpp
     src/infra/time_utils.cpp
     src/infra/upstox_api_client.cpp
+    src/infra/upstox_instrument_json.cpp
     src/order/dry_run_dispatcher.cpp
     src/order/live_order_dispatcher.cpp
     src/order/order_monitor.cpp

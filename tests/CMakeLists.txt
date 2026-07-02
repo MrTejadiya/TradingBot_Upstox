@@ -73,6 +73,14 @@ target_link_libraries(tradingbot_instrument_csv_tests PRIVATE tradingbot_core)
 
 add_test(NAME tradingbot_instrument_csv_tests COMMAND tradingbot_instrument_csv_tests)
 
+add_executable(tradingbot_upstox_instrument_json_tests
+    infra/upstox_instrument_json_tests.cpp
+)
+
+target_link_libraries(tradingbot_upstox_instrument_json_tests PRIVATE tradingbot_core)
+
+add_test(NAME tradingbot_upstox_instrument_json_tests COMMAND tradingbot_upstox_instrument_json_tests)
+
 add_executable(tradingbot_logger_tests
     infra/logger_tests.cpp
 )
