@@ -103,8 +103,10 @@ Upstox publishes beginning-of-day instrument files, including a complete JSON
 file, in the Instruments API documentation:
 https://upstox.com/developer/api-documentation/instruments/
 
-To use the full Upstox universe, download the complete JSON file locally and
-point the config at that file:
+To use the full Upstox universe, either download the complete JSON file locally
+or configure the app to download it into a local cache before parsing.
+
+Local-file mode:
 
 ```json
 "input": {
@@ -118,6 +120,32 @@ point the config at that file:
   "default_notes": "imported from Upstox instrument JSON"
 }
 ```
+
+URL/cache mode:
+
+```json
+"input": {
+  "instrument_source": "upstox_json",
+  "upstox_instruments_url": "https://assets.upstox.com/market-quote/instruments/exchange/complete.json.gz",
+  "upstox_instruments_cache": "data/upstox_complete.cache.json",
+  "refresh_upstox_instruments": true,
+  "allow_stale_upstox_instruments_cache": true,
+  "default_enabled": true,
+  "default_quantity": 1,
+  "default_max_position_qty": 1,
+  "default_target_profit_pct": 10.0,
+  "default_strategy_profile": "",
+  "default_notes": "imported from Upstox instrument JSON"
+}
+```
+
+When `upstox_instruments_url` is set, `upstox_instruments_cache` is required.
+If `refresh_upstox_instruments=false`, startup reads an existing cache first and
+does not call the network. If `refresh_upstox_instruments=true`, startup tries
+to download the URL, writes the cache, then parses that content. When
+`allow_stale_upstox_instruments_cache=true`, a failed download can fall back to
+an existing cache. If no usable local/cache JSON is available, startup fails
+before creating a bot-run row or importing partial instruments.
 
 The JSON importer currently accepts only equity delivery candidates where
 `segment` is `NSE_EQ` or `BSE_EQ` and `instrument_type` is `EQ`. Unsupported

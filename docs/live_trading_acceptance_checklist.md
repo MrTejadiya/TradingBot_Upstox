@@ -63,6 +63,7 @@ Evidence:
 - [ ] Instrument source validation passes with exact duplicate instrument keys rejected.
 - [ ] NSE/BSE duplicate listings for the same equity are collapsed to the NSE key; BSE is used only when no NSE listing is present.
 - [ ] If `input.instrument_source=upstox_json`, the Upstox JSON file date/source is recorded and unsupported records are confirmed skipped.
+- [ ] If `input.upstox_instruments_url` is configured, cache path, refresh behavior, stale-cache fallback, and last successful cache refresh are reviewed.
 - [ ] If `input.instrument_source=upstox_json`, `default_enabled`, `default_quantity`, `default_max_position_qty`, `default_target_profit_pct`, `default_strategy_profile`, and `default_notes` are reviewed.
 - [ ] All enabled instruments have intended quantity, max position, target, and stop-loss values.
 - [ ] Market data freshness checks reject stale, missing, or malformed quotes/candles.

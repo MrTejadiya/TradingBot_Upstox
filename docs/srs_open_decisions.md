@@ -113,21 +113,26 @@ Implementation references:
 
 ## Decision 7: Complete Upstox Instrument Universe
 
-Decision: support a local Upstox complete instrument JSON file as an alternate
-instrument source through `input.instrument_source=upstox_json`, while keeping
-manual CSV as the default. Version 1 imports only `NSE_EQ` and `BSE_EQ` records
-with `instrument_type=EQ`; unsupported records are skipped.
+Decision: support Upstox complete instrument JSON as an alternate instrument
+source through `input.instrument_source=upstox_json`, while keeping manual CSV
+as the default. The JSON source can be a local file or a configured URL with a
+local cache. Version 1 imports only `NSE_EQ` and `BSE_EQ` records with
+`instrument_type=EQ`; unsupported records are skipped.
 
 Rationale: Upstox publishes beginning-of-day instrument files and recommends
-JSON instrument data for robustness and future scalability. Using a local file
-keeps startup deterministic and testable while allowing the scanner universe to
-come from the broker's full instrument list.
+JSON instrument data for robustness and future scalability. A local file keeps
+startup deterministic; URL/cache mode reduces manual refresh work while still
+parsing from a local cache and failing before bot-run creation when acquisition
+or parsing fails.
 
 Implementation references:
 
 - `include/tradingbot/infra/upstox_instrument_json.hpp`
 - `src/infra/upstox_instrument_json.cpp`
 - `src/app/app_runner.cpp`
+- `src/infra/upstox_instrument_json_cache.cpp`
+- `src/infra/win_http_transport.cpp`
 - `config.example.json`
 - `tests/infra/upstox_instrument_json_tests.cpp`
+- `tests/infra/upstox_instrument_json_cache_tests.cpp`
 - `tests/app/app_runner_tests.cpp`
