@@ -1,6 +1,8 @@
 import contextlib
 import csv
+import gzip
 import io
+import json
 import sqlite3
 import sys
 import tempfile
@@ -16,6 +18,9 @@ from scripts.download_historical_candles import (
     download_all,
     interval_name,
     load_instruments_csv,
+    load_instruments_from_args,
+    load_upstox_instruments_json_file,
+    parse_upstox_instruments_json,
     upsert_candles,
     validate_args,
     write_summary,
@@ -71,6 +76,97 @@ class HistoricalCandleDownloadTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "instrument_key"):
                 load_instruments_csv(path)
+
+    def test_parse_upstox_instruments_json_filters_equities_and_prefers_nse(self):
+        payload = [
+            {
+                "segment": "BSE_EQ",
+                "instrument_type": "EQ",
+                "instrument_key": "BSE_EQ|INE002A01018",
+                "trading_symbol": "RELIANCE_BSE",
+            },
+            {
+                "segment": "NSE_EQ",
+                "instrument_type": "EQ",
+                "instrument_key": "NSE_EQ|INE002A01018",
+                "trading_symbol": "RELIANCE_NSE",
+            },
+            {
+                "segment": "NSE_FO",
+                "instrument_type": "FUT",
+                "instrument_key": "NSE_FO|123",
+                "trading_symbol": "RELIANCE_FUT",
+            },
+            {
+                "segment": "NSE_EQ",
+                "instrument_type": "EQ",
+                "instrument_key": "",
+                "trading_symbol": "BAD",
+            },
+        ]
+
+        instruments = parse_upstox_instruments_json(json.dumps(payload))
+
+        self.assertEqual(len(instruments), 1)
+        self.assertEqual(instruments[0].label, "RELIANCE_NSE")
+        self.assertEqual(instruments[0].key, "NSE_EQ|INE002A01018")
+
+    def test_parse_upstox_instruments_json_uses_label_fallbacks(self):
+        payload = [
+            {
+                "segment": "NSE_EQ",
+                "instrument_type": "EQ",
+                "instrument_key": "NSE_EQ|INE111A01010",
+                "short_name": "SHORT",
+            },
+            {
+                "segment": "NSE_EQ",
+                "instrument_type": "EQ",
+                "instrument_key": "NSE_EQ|INE222A01010",
+                "name": "NAMEONLY",
+            },
+        ]
+
+        instruments = parse_upstox_instruments_json(json.dumps(payload))
+
+        self.assertEqual([instrument.label for instrument in instruments], ["SHORT", "NAMEONLY"])
+
+    def test_load_upstox_instruments_json_file_supports_gzip(self):
+        payload = [
+            {
+                "segment": "NSE_EQ",
+                "instrument_type": "EQ",
+                "instrument_key": "NSE_EQ|INE111A01010",
+                "trading_symbol": "ONE",
+            }
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "complete.json.gz"
+            path.write_bytes(gzip.compress(json.dumps(payload).encode("utf-8")))
+
+            instruments = load_upstox_instruments_json_file(path)
+
+        self.assertEqual(len(instruments), 1)
+        self.assertEqual(instruments[0].label, "ONE")
+
+    def test_load_instruments_from_args_accepts_upstox_json_file(self):
+        payload = [
+            {
+                "segment": "NSE_EQ",
+                "instrument_type": "EQ",
+                "instrument_key": "NSE_EQ|INE111A01010",
+                "trading_symbol": "ONE",
+            }
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "complete.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            parser = build_parser()
+            args = parser.parse_args(["--upstox-instruments-json", str(path)])
+
+            instruments = load_instruments_from_args(args)
+
+        self.assertEqual([instrument.key for instrument in instruments], ["NSE_EQ|INE111A01010"])
 
     def test_upsert_candles_creates_resumable_rows(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -165,6 +261,8 @@ class HistoricalCandleDownloadTests(unittest.TestCase):
     def test_validate_args_rejects_invalid_values(self):
         parser = build_parser()
         cases = [
+            [],
+            ["--instruments-csv", "x.csv", "--upstox-instruments-url", "https://example.test/complete.json.gz"],
             ["--instruments-csv", "x.csv", "--interval", "0"],
             ["--instruments-csv", "x.csv", "--lookback-days", "0"],
             ["--instruments-csv", "x.csv", "--throttle-seconds", "-1"],
