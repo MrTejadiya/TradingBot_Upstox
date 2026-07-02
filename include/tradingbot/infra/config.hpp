@@ -1,6 +1,7 @@
 #pragma once
 
 #include "tradingbot/app/cli.hpp"
+#include "tradingbot/core/domain.hpp"
 
 #include <cstddef>
 #include <string>
@@ -8,6 +9,11 @@
 #include <vector>
 
 namespace tradingbot::infra {
+
+enum class InstrumentSource {
+    Csv,
+    UpstoxJson,
+};
 
 struct AppConfig {
     app::Mode mode{app::Mode::DryRun};
@@ -20,7 +26,15 @@ struct UpstoxConfig {
 };
 
 struct InputConfig {
+    InstrumentSource instrument_source{InstrumentSource::Csv};
     std::string instruments_csv;
+    std::string upstox_instruments_json;
+    bool default_enabled{true};
+    core::Quantity default_quantity{1};
+    core::Quantity default_max_position_quantity{1};
+    core::Percent default_target_profit_pct{10.0};
+    std::string default_strategy_profile;
+    std::string default_notes{"imported from Upstox instrument JSON"};
 };
 
 struct MarketDataConfig {

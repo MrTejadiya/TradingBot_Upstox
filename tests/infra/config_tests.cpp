@@ -27,6 +27,7 @@ std::string valid_config_json() {
             "force_ipv4": true
         },
         "input": {
+            "instrument_source": "csv",
             "instruments_csv": "instruments.csv"
         },
         "market_data": {
@@ -85,6 +86,8 @@ void loads_valid_json_config() {
     require(!result.config.app.live_trading_enabled, "live flag should parse");
     require(result.config.upstox.access_token_env == "UPSTOX_ACCESS_TOKEN", "token env should parse");
     require(result.config.upstox.force_ipv4, "force IPv4 flag should parse");
+    require(result.config.input.instrument_source == tradingbot::infra::InstrumentSource::Csv,
+            "CSV source should parse");
     require(result.config.input.instruments_csv == "instruments.csv", "CSV path should parse");
     require(result.config.market_data.candle_intervals.size() == 3, "candle intervals should parse");
     require(result.config.market_data.max_quote_age_seconds == 300.0, "quote freshness should parse");
@@ -107,6 +110,96 @@ void loads_valid_json_config() {
     require(result.config.rate_limits.order_api_safe_requests_per_second == 2.0, "order API safe limit should parse");
     require(result.config.storage.sqlite_path == "bot.sqlite3", "SQLite path should parse");
     require(result.config.logging.log_directory == "logs", "log directory should parse");
+}
+
+void loads_upstox_json_input_config() {
+    auto json = valid_config_json();
+    const auto from = std::string{R"json("input": {
+            "instrument_source": "csv",
+            "instruments_csv": "instruments.csv"
+        })json"};
+    const auto to = std::string{R"json("input": {
+            "instrument_source": "upstox_json",
+            "upstox_instruments_json": "data/upstox_complete.json",
+            "default_enabled": false,
+            "default_quantity": 2,
+            "default_max_position_qty": 8,
+            "default_target_profit_pct": 6.5,
+            "default_strategy_profile": "scanner",
+            "default_notes": "complete universe"
+        })json"};
+    json.replace(json.find(from), from.size(), to);
+
+    const auto result = tradingbot::infra::load_config_from_json(json);
+
+    require(result.ok, "Upstox JSON input config should load");
+    require(result.config.input.instrument_source == tradingbot::infra::InstrumentSource::UpstoxJson,
+            "Upstox JSON source should parse");
+    require(result.config.input.upstox_instruments_json == "data/upstox_complete.json", "JSON path should parse");
+    require(!result.config.input.default_enabled, "default enabled should parse");
+    require(result.config.input.default_quantity == 2, "default quantity should parse");
+    require(result.config.input.default_max_position_quantity == 8, "default max position should parse");
+    require(result.config.input.default_target_profit_pct == 6.5, "default target should parse");
+    require(result.config.input.default_strategy_profile == "scanner", "default profile should parse");
+    require(result.config.input.default_notes == "complete universe", "default notes should parse");
+}
+
+void rejects_unknown_instrument_source() {
+    auto json = valid_config_json();
+    const auto from = std::string{"\"instrument_source\": \"csv\""};
+    const auto to = std::string{"\"instrument_source\": \"manual\""};
+    json.replace(json.find(from), from.size(), to);
+
+    const auto result = tradingbot::infra::load_config_from_json(json);
+
+    require(!result.ok, "unknown instrument source should fail");
+    bool found = false;
+    for (const auto& error : result.errors) {
+        found = found || error.find("input.instrument_source") != std::string::npos;
+    }
+    require(found, "instrument source error should be reported");
+}
+
+void rejects_missing_upstox_json_path_for_upstox_source() {
+    auto json = valid_config_json();
+    const auto from = std::string{R"json("input": {
+            "instrument_source": "csv",
+            "instruments_csv": "instruments.csv"
+        })json"};
+    const auto to = std::string{R"json("input": {
+            "instrument_source": "upstox_json"
+        })json"};
+    json.replace(json.find(from), from.size(), to);
+
+    const auto result = tradingbot::infra::load_config_from_json(json);
+
+    require(!result.ok, "Upstox source without path should fail");
+    bool found = false;
+    for (const auto& error : result.errors) {
+        found = found || error.find("input.upstox_instruments_json") != std::string::npos;
+    }
+    require(found, "missing Upstox JSON path error should be reported");
+}
+
+void rejects_invalid_import_defaults() {
+    auto json = valid_config_json();
+    const auto from = std::string{R"json("input": {
+            "instrument_source": "csv",
+            "instruments_csv": "instruments.csv"
+        })json"};
+    const auto to = std::string{R"json("input": {
+            "instrument_source": "upstox_json",
+            "upstox_instruments_json": "data/upstox_complete.json",
+            "default_quantity": 0,
+            "default_max_position_qty": 1.5,
+            "default_target_profit_pct": -1
+        })json"};
+    json.replace(json.find(from), from.size(), to);
+
+    const auto result = tradingbot::infra::load_config_from_json(json);
+
+    require(!result.ok, "invalid import defaults should fail");
+    require(result.errors.size() >= 3, "invalid default fields should report all errors");
 }
 
 void reports_missing_required_sections() {
@@ -236,6 +329,10 @@ void published_example_config_loads() {
 
 int main() {
     loads_valid_json_config();
+    loads_upstox_json_input_config();
+    rejects_unknown_instrument_source();
+    rejects_missing_upstox_json_path_for_upstox_source();
+    rejects_invalid_import_defaults();
     reports_missing_required_sections();
     rejects_invalid_live_flag_type();
     rejects_unknown_mode();

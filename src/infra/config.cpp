@@ -347,6 +347,17 @@ app::Mode parse_mode_or_default(const std::string& value, std::vector<std::strin
     return app::Mode::DryRun;
 }
 
+InstrumentSource parse_instrument_source_or_default(const std::string& value, std::vector<std::string>& errors) {
+    if (value.empty() || value == "csv") {
+        return InstrumentSource::Csv;
+    }
+    if (value == "upstox_json") {
+        return InstrumentSource::UpstoxJson;
+    }
+    errors.push_back("input.instrument_source must be csv or upstox_json");
+    return InstrumentSource::Csv;
+}
+
 const JsonObject* require_section(const JsonObject& root, const std::string& name, std::vector<std::string>& errors) {
     const auto* value = find_key(root, name);
     if (value == nullptr) {
@@ -389,6 +400,32 @@ int require_positive_int(const JsonObject& object, const std::string& path, cons
         return 0;
     }
     return static_cast<int>(*value);
+}
+
+core::Quantity optional_positive_quantity(const JsonObject& object, const std::string& path, const std::string& key,
+                                          core::Quantity fallback, std::vector<std::string>& errors) {
+    const auto value = number_at(object, key);
+    if (!value) {
+        return fallback;
+    }
+    if (*value <= 0.0 || *value != static_cast<double>(static_cast<core::Quantity>(*value))) {
+        errors.push_back(path + "." + key + " must be a positive integer");
+        return fallback;
+    }
+    return static_cast<core::Quantity>(*value);
+}
+
+double optional_non_negative_number(const JsonObject& object, const std::string& path, const std::string& key,
+                                    double fallback, std::vector<std::string>& errors) {
+    const auto value = number_at(object, key);
+    if (!value) {
+        return fallback;
+    }
+    if (*value < 0.0) {
+        errors.push_back(path + "." + key + " must be non-negative");
+        return fallback;
+    }
+    return *value;
 }
 
 std::size_t require_non_negative_int(const JsonObject& object, const std::string& path, const std::string& key,
@@ -465,7 +502,29 @@ ConfigLoadResult load_config_from_json(const std::string& json_text) {
         result.config.upstox.force_ipv4 = bool_at(*upstox, "force_ipv4").value_or(false);
     }
     if (input != nullptr) {
-        result.config.input.instruments_csv = require_string(*input, "input", "instruments_csv", result.errors);
+        result.config.input.instrument_source =
+            parse_instrument_source_or_default(string_at(*input, "instrument_source").value_or("csv"), result.errors);
+        result.config.input.instruments_csv = string_at(*input, "instruments_csv").value_or("");
+        result.config.input.upstox_instruments_json = string_at(*input, "upstox_instruments_json").value_or("");
+        result.config.input.default_enabled = bool_at(*input, "default_enabled").value_or(true);
+        result.config.input.default_quantity =
+            optional_positive_quantity(*input, "input", "default_quantity", 1, result.errors);
+        result.config.input.default_max_position_quantity =
+            optional_positive_quantity(*input, "input", "default_max_position_qty", 1, result.errors);
+        result.config.input.default_target_profit_pct =
+            optional_non_negative_number(*input, "input", "default_target_profit_pct", 10.0, result.errors);
+        result.config.input.default_strategy_profile = string_at(*input, "default_strategy_profile").value_or("");
+        result.config.input.default_notes =
+            string_at(*input, "default_notes").value_or("imported from Upstox instrument JSON");
+
+        if (result.config.input.instrument_source == InstrumentSource::Csv && result.config.input.instruments_csv.empty()) {
+            result.errors.push_back("input.instruments_csv must be a non-empty string when input.instrument_source is csv");
+        }
+        if (result.config.input.instrument_source == InstrumentSource::UpstoxJson &&
+            result.config.input.upstox_instruments_json.empty()) {
+            result.errors.push_back(
+                "input.upstox_instruments_json must be a non-empty string when input.instrument_source is upstox_json");
+        }
     }
     if (market_data != nullptr) {
         const auto intervals = string_array_at(*market_data, "candle_intervals");

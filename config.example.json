@@ -8,7 +8,15 @@
     "force_ipv4": true
   },
   "input": {
-    "instruments_csv": "instruments.csv"
+    "instrument_source": "csv",
+    "instruments_csv": "instruments.csv",
+    "upstox_instruments_json": "data/upstox_complete.json",
+    "default_enabled": true,
+    "default_quantity": 1,
+    "default_max_position_qty": 1,
+    "default_target_profit_pct": 10.0,
+    "default_strategy_profile": "",
+    "default_notes": "imported from Upstox instrument JSON"
   },
   "market_data": {
     "candle_intervals": ["1d", "1h", "15m"],
