@@ -123,7 +123,9 @@ Rationale: Upstox publishes beginning-of-day instrument files and recommends
 JSON instrument data for robustness and future scalability. A local file keeps
 startup deterministic; URL/cache mode reduces manual refresh work while still
 parsing from a local cache and failing before bot-run creation when acquisition
-or parsing fails.
+or parsing fails. Successful URL refreshes write a sidecar metadata file so the
+operator can review the source URL, refresh time, HTTP status, and payload size
+before live trading.
 
 Implementation references:
 

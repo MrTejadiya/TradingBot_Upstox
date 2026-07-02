@@ -147,6 +147,13 @@ to download the URL, writes the cache, then parses that content. When
 an existing cache. If no usable local/cache JSON is available, startup fails
 before creating a bot-run row or importing partial instruments.
 
+After a successful URL refresh, the app writes a metadata sidecar beside the
+cache file. For `data/upstox_complete.cache.json`, the metadata file is
+`data/upstox_complete.cache.json.metadata.json`. It records `source_url`,
+`cache_path`, `refreshed_at_utc`, `status_code`, and `bytes`. Review this file
+before any live run that depends on URL/cache mode. Cache-hit startup reads do
+not rewrite the metadata file.
+
 The JSON importer currently accepts only equity delivery candidates where
 `segment` is `NSE_EQ` or `BSE_EQ` and `instrument_type` is `EQ`. Unsupported
 records, such as FO, MCX, indexes, mutual funds, or other non-equity records,
