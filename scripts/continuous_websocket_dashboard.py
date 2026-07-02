@@ -127,6 +127,8 @@ def result_to_dict(result: OfflineScannerResult) -> dict:
         "strategies": sorted(result.strategies),
         "latest_close": result.latest_close,
         "latest_rsi": result.latest_rsi,
+        "latest_signal_age_candles": result.latest_signal_age_candles,
+        "latest_signal_timestamp": result.latest_signal_timestamp,
         "candle_count": result.candle_count,
         "diagnostic": result.diagnostic,
     }
@@ -165,6 +167,8 @@ def render_html(snapshot: DashboardSnapshot) -> str:
             f"<td>{html.escape(';'.join(sorted(result.strategies)))}</td>"
             f"<td>{result.latest_close:.2f}</td>"
             f"<td>{'' if result.latest_rsi is None else f'{result.latest_rsi:.2f}'}</td>"
+            f"<td>{'' if result.latest_signal_age_candles is None else result.latest_signal_age_candles}</td>"
+            f"<td>{html.escape(result.latest_signal_timestamp)}</td>"
             "</tr>"
         )
     return f"""<!doctype html>
@@ -196,11 +200,23 @@ def render_html(snapshot: DashboardSnapshot) -> str:
   </div>
   <div class="error">{html.escape(snapshot.last_error)}</div>
   <table>
-    <thead><tr><th>Rank</th><th>Symbol</th><th>Instrument</th><th>Score</th><th>Signals</th><th>Strategies</th><th>Close</th><th>RSI</th></tr></thead>
+    <thead><tr><th>Rank</th><th>Symbol</th><th>Instrument</th><th>Score</th><th>Signals</th><th>Strategies</th><th>Close</th><th>RSI</th><th>Signal Age</th><th>Signal Time</th></tr></thead>
     <tbody>{''.join(rows)}</tbody>
   </table>
 </body>
 </html>"""
+
+
+def has_fresh_live_signal(result: OfflineScannerResult, instrument_key: str, live_states, max_signal_age_candles: int) -> bool:
+    if instrument_key not in live_states:
+        result.diagnostic = "waiting for live quote"
+        return False
+    if result.latest_signal_age_candles is None:
+        return False
+    if result.latest_signal_age_candles > max_signal_age_candles:
+        result.diagnostic = f"stale signal age {result.latest_signal_age_candles} candles"
+        return False
+    return True
 
 
 def scan_snapshot(
@@ -211,6 +227,7 @@ def scan_snapshot(
     interval: str,
     min_latest_close: float,
     top_n: int,
+    max_signal_age_candles: int,
 ) -> list[OfflineScannerResult]:
     label_map = load_label_map(labels_csv)
     for instrument in instruments:
@@ -220,20 +237,20 @@ def scan_snapshot(
         for instrument in instruments:
             historical = load_historical_candles(connection, instrument.key, interval)
             candles = merge_live_candle(historical, live_states.get(instrument.key))
-            results.append(
-                scan_candles(
-                    instrument_key=instrument.key,
-                    candles=candles,
-                    label_map=label_map,
-                    weights=DEFAULT_WEIGHTS,
-                    rsi_period=14,
-                    wing_size=1,
-                    macd_fast_period=12,
-                    macd_slow_period=26,
-                    macd_signal_period=9,
-                    min_candles=40,
-                )
+            result = scan_candles(
+                instrument_key=instrument.key,
+                candles=candles,
+                label_map=label_map,
+                weights=DEFAULT_WEIGHTS,
+                rsi_period=14,
+                wing_size=1,
+                macd_fast_period=12,
+                macd_slow_period=26,
+                macd_signal_period=9,
+                min_candles=40,
             )
+            if has_fresh_live_signal(result, instrument.key, live_states, max_signal_age_candles):
+                results.append(result)
     return rank_results(results, minimum_score=0.01, top_n=top_n, include_all=False, min_latest_close=min_latest_close)
 
 
@@ -331,6 +348,7 @@ def run_continuous(args: argparse.Namespace) -> int:
                         interval=args.interval,
                         min_latest_close=args.min_latest_close,
                         top_n=args.top_n,
+                        max_signal_age_candles=args.max_signal_age_candles,
                     )
                     scan_count += 1
                     updated = iso_utc(utc_now())
@@ -383,6 +401,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--market-close", default="15:30", help="HH:MM IST")
     parser.add_argument("--top-n", type=int, default=50)
     parser.add_argument("--min-latest-close", type=float, default=DEFAULT_MIN_LATEST_CLOSE)
+    parser.add_argument("--max-signal-age-candles", type=int, default=1, help="Maximum candle age for ranked live signals; 1 allows yesterday's RSI pivot to be confirmed by today's live candle")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     return parser
@@ -401,6 +420,8 @@ def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         parser.error("--top-n must be positive")
     if args.min_latest_close < 0:
         parser.error("--min-latest-close must be non-negative")
+    if args.max_signal_age_candles < 0:
+        parser.error("--max-signal-age-candles must be non-negative")
     try:
         market_close_deadline(utc_now(), args.market_close)
     except Exception:

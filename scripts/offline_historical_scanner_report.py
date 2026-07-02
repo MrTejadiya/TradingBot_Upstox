@@ -49,6 +49,10 @@ class OfflineScannerResult:
     macd: MacdSnapshot | None = None
     chart_path: str = ""
     diagnostic: str = ""
+    strategy_signal_indexes: dict[str, int] = field(default_factory=dict)
+    latest_signal_index: int | None = None
+    latest_signal_age_candles: int | None = None
+    latest_signal_timestamp: str = ""
 
 
 def apply_weight(score: float, strategy: str, weights: dict[str, float]) -> float:
@@ -181,6 +185,8 @@ def scan_candles(
     if divergence.bullish:
         strategy = "rsi_bullish_divergence"
         result.strategies.append(strategy)
+        if divergence.bullish_signal_index is not None:
+            result.strategy_signal_indexes[strategy] = divergence.bullish_signal_index
         result.score += apply_weight(0.80, strategy, weights)
         result.signal_count += 1
 
@@ -190,8 +196,14 @@ def scan_candles(
     if bullish_macd:
         strategy = "macd_bullish_cross"
         result.strategies.append(strategy)
+        result.strategy_signal_indexes[strategy] = len(candles) - 1
         result.score += apply_weight(0.70, strategy, weights)
         result.signal_count += 1
+
+    if result.strategy_signal_indexes:
+        result.latest_signal_index = max(result.strategy_signal_indexes.values())
+        result.latest_signal_age_candles = (len(candles) - 1) - result.latest_signal_index
+        result.latest_signal_timestamp = candles[result.latest_signal_index].timestamp
 
     if result.signal_count == 0:
         result.diagnostic = "no bullish scanner signal"
@@ -246,6 +258,8 @@ def write_report(path: Path, results: list[OfflineScannerResult]) -> None:
                 "strategies",
                 "latest_close",
                 "latest_rsi",
+                "latest_signal_age_candles",
+                "latest_signal_timestamp",
                 "candle_count",
                 "bullish_rsi_divergence",
                 "bearish_rsi_divergence",
@@ -268,6 +282,8 @@ def write_report(path: Path, results: list[OfflineScannerResult]) -> None:
                     ";".join(sorted(result.strategies)),
                     f"{result.latest_close:.4f}" if result.latest_close else "",
                     "" if result.latest_rsi is None else f"{result.latest_rsi:.4f}",
+                    "" if result.latest_signal_age_candles is None else str(result.latest_signal_age_candles),
+                    result.latest_signal_timestamp,
                     result.candle_count,
                     str(result.bullish_rsi_divergence).lower(),
                     str(result.bearish_rsi_divergence).lower(),

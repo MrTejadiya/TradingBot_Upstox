@@ -360,7 +360,12 @@ Open `http://127.0.0.1:8765/` for the local dashboard or
 `--instrument-limit 0` means all tracked instruments from the summary CSV are
 subscribed. The current equity universe is below the documented V3 LTPC
 single-category limit of 5,000 keys. Use `--duration-seconds` for a shorter
-supervised run.
+supervised run. The dashboard only ranks instruments after a live quote has
+arrived and the scanner signal is fresh. `--max-signal-age-candles 1` is the
+default: MACD crosses must occur on the live candle, while RSI pivot divergence
+may use the immediately previous candle because a pivot needs a confirming
+right-side candle. The CSV, dashboard, and JSON API expose
+`latest_signal_age_candles` and `latest_signal_timestamp` for review.
 
 Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.

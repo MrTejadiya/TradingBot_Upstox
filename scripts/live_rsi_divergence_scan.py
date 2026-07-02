@@ -55,6 +55,14 @@ class DivergenceResult:
     bullish_pair: tuple[int, int] | None = None
     bearish_pair: tuple[int, int] | None = None
 
+    @property
+    def bullish_signal_index(self) -> int | None:
+        return self.bullish_pair[1] if self.bullish_pair else None
+
+    @property
+    def bearish_signal_index(self) -> int | None:
+        return self.bearish_pair[1] if self.bearish_pair else None
+
 
 def read_access_token(path: Path, env_name: str = "UPSTOX_ACCESS_TOKEN") -> str:
     token = os.environ.get(env_name, "").strip()

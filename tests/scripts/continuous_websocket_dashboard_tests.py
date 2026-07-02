@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.continuous_websocket_dashboard import (
     DashboardSnapshot,
     build_parser,
+    has_fresh_live_signal,
     load_instruments_from_summary,
     market_close_deadline,
     render_html,
@@ -76,6 +77,7 @@ class ContinuousWebsocketDashboardTests(unittest.TestCase):
         self.assertEqual(data["status"], "streaming")
         self.assertEqual(data["ranked"][0]["symbol"], "AAA")
         self.assertEqual(data["ranked"][0]["score"], 1.23)
+        self.assertIn("latest_signal_age_candles", data["ranked"][0])
 
     def test_render_html_includes_top_result(self):
         snapshot = DashboardSnapshot(
@@ -87,6 +89,32 @@ class ContinuousWebsocketDashboardTests(unittest.TestCase):
 
         self.assertIn("TradingBot Live Scanner", body)
         self.assertIn("AAA", body)
+        self.assertIn("Signal Age", body)
+
+    def test_has_fresh_live_signal_requires_live_quote_and_age_window(self):
+        fresh = OfflineScannerResult(
+            instrument_key="NSE_EQ|AAA",
+            score=1.0,
+            latest_signal_age_candles=1,
+            latest_signal_timestamp="2026-07-02T00:00:00+05:30",
+        )
+        stale = OfflineScannerResult(
+            instrument_key="NSE_EQ|AAA",
+            score=1.0,
+            latest_signal_age_candles=2,
+            latest_signal_timestamp="2026-06-30T00:00:00+05:30",
+        )
+        missing_live = OfflineScannerResult(
+            instrument_key="NSE_EQ|BBB",
+            score=1.0,
+            latest_signal_age_candles=0,
+        )
+
+        self.assertTrue(has_fresh_live_signal(fresh, "NSE_EQ|AAA", {"NSE_EQ|AAA": object()}, 1))
+        self.assertFalse(has_fresh_live_signal(stale, "NSE_EQ|AAA", {"NSE_EQ|AAA": object()}, 1))
+        self.assertEqual(stale.diagnostic, "stale signal age 2 candles")
+        self.assertFalse(has_fresh_live_signal(missing_live, "NSE_EQ|BBB", {}, 1))
+        self.assertEqual(missing_live.diagnostic, "waiting for live quote")
 
     def test_write_json_snapshot_outputs_valid_json(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -108,6 +136,7 @@ class ContinuousWebsocketDashboardTests(unittest.TestCase):
             ["--duration-seconds", "-1"],
             ["--top-n", "0"],
             ["--min-latest-close", "-1"],
+            ["--max-signal-age-candles", "-1"],
             ["--market-close", "bad"],
         ]
         for case in cases:
