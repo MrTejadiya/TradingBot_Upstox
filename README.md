@@ -12,6 +12,12 @@ ctest --test-dir build --output-on-failure
 
 If Ninja is not available, omit `-G "Ninja"` and let CMake choose a local generator.
 
+To run the full local verification set, including the Python scanner tests:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run_tests.ps1
+```
+
 ## CLI
 
 ```powershell
