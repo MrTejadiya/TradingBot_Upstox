@@ -59,7 +59,8 @@ Evidence:
 
 ## Data And Strategy Readiness
 
-- [ ] CSV validation passes with duplicate instruments rejected.
+- [ ] CSV validation passes with exact duplicate instrument keys rejected.
+- [ ] NSE/BSE duplicate listings for the same equity are collapsed to the NSE key; BSE is used only when no NSE listing is present.
 - [ ] All enabled instruments have intended quantity, max position, target, and stop-loss values.
 - [ ] Market data freshness checks reject stale, missing, or malformed quotes/candles.
 - [ ] Strategy profile selection is reviewed per instrument.

@@ -462,7 +462,6 @@ def main(argv: Iterable[str] | None = None) -> int:
     from_date, to_date = (args.from_date, args.to_date) if args.from_date and args.to_date else default_dates(args.lookback_days)
     instruments = prefer_nse_duplicate_listings([parse_instrument(value) for value in args.instrument] or [
         Instrument("RELIANCE_NSE", "NSE_EQ|INE002A01018"),
-        Instrument("RELIANCE_BSE", "BSE_EQ|INE002A01018"),
     ])
     token = read_access_token(Path(args.token_file))
 
