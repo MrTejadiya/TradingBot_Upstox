@@ -90,3 +90,23 @@ Implementation references:
 - `src/order/live_order_dispatcher.cpp`
 - `tests/order/live_order_dispatcher_tests.cpp`
 - `docs/live_trading_acceptance_checklist.md`
+
+## Decision 6: NSE/BSE Duplicate Listings
+
+Decision: the instrument universe must not process both NSE and BSE listings for
+the same equity identity. Exact duplicate `instrument_key` rows remain invalid.
+When `NSE_EQ|...` and `BSE_EQ|...` share the same identity after the pipe
+separator, the NSE row is retained and the BSE row is dropped. A BSE row is
+retained only when no matching NSE row is present.
+
+Rationale: scanning or trading both exchange listings for the same equity can
+double count a candidate and create duplicate decision pressure. Preferring NSE
+keeps the universe deterministic while preserving BSE-only coverage.
+
+Implementation references:
+
+- `src/infra/instrument_csv.cpp`
+- `tests/infra/instrument_csv_tests.cpp`
+- `tests/app/app_runner_tests.cpp`
+- `scripts/live_rsi_divergence_scan.py`
+- `tests/scripts/live_rsi_divergence_scan_tests.py`
