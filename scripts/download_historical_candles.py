@@ -6,10 +6,13 @@ from __future__ import annotations
 import argparse
 import contextlib
 import csv
+import gzip
 import datetime as dt
+import json
 import sqlite3
 import sys
 import time
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
@@ -67,6 +70,66 @@ def load_instruments_csv(path: Path, enabled_only: bool = True) -> list[Instrume
                 continue
             instruments.append(Instrument(label=symbol, key=key))
     return prefer_nse_duplicate_listings(instruments)
+
+
+def upstox_json_label(record: dict) -> str:
+    for key in ("trading_symbol", "short_name", "name", "instrument_key"):
+        value = str(record.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def parse_upstox_instruments_json(text: str) -> list[Instrument]:
+    payload = json.loads(text)
+    if not isinstance(payload, list):
+        raise ValueError("Upstox instruments JSON root must be an array")
+    instruments: list[Instrument] = []
+    for record in payload:
+        if not isinstance(record, dict):
+            continue
+        if record.get("segment") not in {"NSE_EQ", "BSE_EQ"}:
+            continue
+        if record.get("instrument_type") != "EQ":
+            continue
+        key = str(record.get("instrument_key") or "").strip()
+        if not key:
+            continue
+        instruments.append(Instrument(label=upstox_json_label(record), key=key))
+    if not instruments:
+        raise ValueError("Upstox instruments JSON did not contain supported NSE_EQ or BSE_EQ equity records")
+    return prefer_nse_duplicate_listings(instruments)
+
+
+def decode_maybe_gzip(data: bytes, source_name: str) -> str:
+    if source_name.endswith(".gz") or data[:2] == b"\x1f\x8b":
+        data = gzip.decompress(data)
+    return data.decode("utf-8")
+
+
+def load_upstox_instruments_json_file(path: Path) -> list[Instrument]:
+    return parse_upstox_instruments_json(decode_maybe_gzip(path.read_bytes(), path.name))
+
+
+def load_upstox_instruments_json_url(url: str) -> list[Instrument]:
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "TradingBot-Upstox-Historical-Downloader/0.1",
+        },
+        method="GET",
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        return parse_upstox_instruments_json(decode_maybe_gzip(response.read(), url))
+
+
+def load_instruments_from_args(args: argparse.Namespace) -> list[Instrument]:
+    if args.instruments_csv:
+        return load_instruments_csv(Path(args.instruments_csv), enabled_only=not args.include_disabled)
+    if args.upstox_instruments_json:
+        return load_upstox_instruments_json_file(Path(args.upstox_instruments_json))
+    return load_upstox_instruments_json_url(args.upstox_instruments_url)
 
 
 def apply_schema(connection: sqlite3.Connection) -> None:
@@ -190,8 +253,10 @@ def default_dates(days: int) -> tuple[str, str]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Download historical candles for all instruments in a CSV file.")
-    parser.add_argument("--instruments-csv", required=True)
+    parser = argparse.ArgumentParser(description="Download historical candles for instruments from CSV or Upstox JSON.")
+    parser.add_argument("--instruments-csv")
+    parser.add_argument("--upstox-instruments-json")
+    parser.add_argument("--upstox-instruments-url")
     parser.add_argument("--sqlite-path", default="data/historical_candles.sqlite3")
     parser.add_argument("--summary-csv", default="reports/historical-candle-download-summary.csv")
     parser.add_argument("--token-file", default=DEFAULT_TOKEN_FILE)
@@ -209,6 +274,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    sources = [bool(args.instruments_csv), bool(args.upstox_instruments_json), bool(args.upstox_instruments_url)]
+    if sum(sources) != 1:
+        parser.error("provide exactly one of --instruments-csv, --upstox-instruments-json, or --upstox-instruments-url")
     if args.interval <= 0:
         parser.error("--interval must be a positive integer")
     if args.lookback_days <= 0:
@@ -234,7 +302,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     args = parser.parse_args(list(argv) if argv is not None else None)
     validate_args(parser, args)
     from_date, to_date = (args.from_date, args.to_date) if args.from_date and args.to_date else default_dates(args.lookback_days)
-    instruments = load_instruments_csv(Path(args.instruments_csv), enabled_only=not args.include_disabled)
+    instruments = load_instruments_from_args(args)
     token = read_access_token(Path(args.token_file))
 
     print("Read-only download: historical candle endpoints only; no order endpoints are called.")
