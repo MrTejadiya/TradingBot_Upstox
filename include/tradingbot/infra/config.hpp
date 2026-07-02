@@ -29,6 +29,10 @@ struct InputConfig {
     InstrumentSource instrument_source{InstrumentSource::Csv};
     std::string instruments_csv;
     std::string upstox_instruments_json;
+    std::string upstox_instruments_url;
+    std::string upstox_instruments_cache;
+    bool refresh_upstox_instruments{false};
+    bool allow_stale_upstox_instruments_cache{true};
     bool default_enabled{true};
     core::Quantity default_quantity{1};
     core::Quantity default_max_position_quantity{1};

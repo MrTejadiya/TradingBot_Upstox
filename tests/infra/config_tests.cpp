@@ -121,6 +121,10 @@ void loads_upstox_json_input_config() {
     const auto to = std::string{R"json("input": {
             "instrument_source": "upstox_json",
             "upstox_instruments_json": "data/upstox_complete.json",
+            "upstox_instruments_url": "https://assets.upstox.com/complete.json.gz",
+            "upstox_instruments_cache": "cache/upstox_complete.json",
+            "refresh_upstox_instruments": true,
+            "allow_stale_upstox_instruments_cache": false,
             "default_enabled": false,
             "default_quantity": 2,
             "default_max_position_qty": 8,
@@ -136,6 +140,11 @@ void loads_upstox_json_input_config() {
     require(result.config.input.instrument_source == tradingbot::infra::InstrumentSource::UpstoxJson,
             "Upstox JSON source should parse");
     require(result.config.input.upstox_instruments_json == "data/upstox_complete.json", "JSON path should parse");
+    require(result.config.input.upstox_instruments_url == "https://assets.upstox.com/complete.json.gz",
+            "JSON URL should parse");
+    require(result.config.input.upstox_instruments_cache == "cache/upstox_complete.json", "cache path should parse");
+    require(result.config.input.refresh_upstox_instruments, "refresh flag should parse");
+    require(!result.config.input.allow_stale_upstox_instruments_cache, "stale cache flag should parse");
     require(!result.config.input.default_enabled, "default enabled should parse");
     require(result.config.input.default_quantity == 2, "default quantity should parse");
     require(result.config.input.default_max_position_quantity == 8, "default max position should parse");
@@ -179,6 +188,52 @@ void rejects_missing_upstox_json_path_for_upstox_source() {
         found = found || error.find("input.upstox_instruments_json") != std::string::npos;
     }
     require(found, "missing Upstox JSON path error should be reported");
+}
+
+void allows_upstox_url_with_cache_without_local_json_path() {
+    auto json = valid_config_json();
+    const auto from = std::string{R"json("input": {
+            "instrument_source": "csv",
+            "instruments_csv": "instruments.csv"
+        })json"};
+    const auto to = std::string{R"json("input": {
+            "instrument_source": "upstox_json",
+            "upstox_instruments_url": "https://assets.upstox.com/complete.json.gz",
+            "upstox_instruments_cache": "cache/upstox_complete.json"
+        })json"};
+    json.replace(json.find(from), from.size(), to);
+
+    const auto result = tradingbot::infra::load_config_from_json(json);
+
+    require(result.ok, "Upstox URL plus cache should load without local JSON path");
+    require(result.config.input.upstox_instruments_json.empty(), "local JSON path should remain empty");
+    require(result.config.input.upstox_instruments_url == "https://assets.upstox.com/complete.json.gz",
+            "URL should parse");
+    require(result.config.input.upstox_instruments_cache == "cache/upstox_complete.json", "cache should parse");
+    require(!result.config.input.refresh_upstox_instruments, "refresh should default false");
+    require(result.config.input.allow_stale_upstox_instruments_cache, "stale cache fallback should default true");
+}
+
+void rejects_upstox_url_without_cache_path() {
+    auto json = valid_config_json();
+    const auto from = std::string{R"json("input": {
+            "instrument_source": "csv",
+            "instruments_csv": "instruments.csv"
+        })json"};
+    const auto to = std::string{R"json("input": {
+            "instrument_source": "upstox_json",
+            "upstox_instruments_url": "https://assets.upstox.com/complete.json.gz"
+        })json"};
+    json.replace(json.find(from), from.size(), to);
+
+    const auto result = tradingbot::infra::load_config_from_json(json);
+
+    require(!result.ok, "Upstox URL without cache should fail");
+    bool found = false;
+    for (const auto& error : result.errors) {
+        found = found || error.find("input.upstox_instruments_cache") != std::string::npos;
+    }
+    require(found, "missing cache path error should be reported");
 }
 
 void rejects_invalid_import_defaults() {
@@ -332,6 +387,8 @@ int main() {
     loads_upstox_json_input_config();
     rejects_unknown_instrument_source();
     rejects_missing_upstox_json_path_for_upstox_source();
+    allows_upstox_url_with_cache_without_local_json_path();
+    rejects_upstox_url_without_cache_path();
     rejects_invalid_import_defaults();
     reports_missing_required_sections();
     rejects_invalid_live_flag_type();

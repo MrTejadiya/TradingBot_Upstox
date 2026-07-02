@@ -506,6 +506,11 @@ ConfigLoadResult load_config_from_json(const std::string& json_text) {
             parse_instrument_source_or_default(string_at(*input, "instrument_source").value_or("csv"), result.errors);
         result.config.input.instruments_csv = string_at(*input, "instruments_csv").value_or("");
         result.config.input.upstox_instruments_json = string_at(*input, "upstox_instruments_json").value_or("");
+        result.config.input.upstox_instruments_url = string_at(*input, "upstox_instruments_url").value_or("");
+        result.config.input.upstox_instruments_cache = string_at(*input, "upstox_instruments_cache").value_or("");
+        result.config.input.refresh_upstox_instruments = bool_at(*input, "refresh_upstox_instruments").value_or(false);
+        result.config.input.allow_stale_upstox_instruments_cache =
+            bool_at(*input, "allow_stale_upstox_instruments_cache").value_or(true);
         result.config.input.default_enabled = bool_at(*input, "default_enabled").value_or(true);
         result.config.input.default_quantity =
             optional_positive_quantity(*input, "input", "default_quantity", 1, result.errors);
@@ -521,9 +526,14 @@ ConfigLoadResult load_config_from_json(const std::string& json_text) {
             result.errors.push_back("input.instruments_csv must be a non-empty string when input.instrument_source is csv");
         }
         if (result.config.input.instrument_source == InstrumentSource::UpstoxJson &&
-            result.config.input.upstox_instruments_json.empty()) {
+            result.config.input.upstox_instruments_json.empty() && result.config.input.upstox_instruments_url.empty()) {
             result.errors.push_back(
-                "input.upstox_instruments_json must be a non-empty string when input.instrument_source is upstox_json");
+                "input.upstox_instruments_json or input.upstox_instruments_url must be set when input.instrument_source is upstox_json");
+        }
+        if (result.config.input.instrument_source == InstrumentSource::UpstoxJson &&
+            !result.config.input.upstox_instruments_url.empty() && result.config.input.upstox_instruments_cache.empty()) {
+            result.errors.push_back(
+                "input.upstox_instruments_cache must be a non-empty string when input.upstox_instruments_url is set");
         }
     }
     if (market_data != nullptr) {
