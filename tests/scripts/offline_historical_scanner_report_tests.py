@@ -121,6 +121,7 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
         self.assertAlmostEqual(result.score, 1.0)
         self.assertEqual(result.latest_signal_age_candles, 2)
         self.assertEqual(result.latest_signal_timestamp, "6")
+        self.assertEqual(result.strategy_signal_timestamps["rsi_bullish_divergence"], "6")
 
     def test_detects_bullish_macd_cross(self):
         closes = [49.98, 51.14, 52.04, 51.29, 50.78, 52.06, 50.83, 51.11, 51.04, 49.41, 50.21, 51.17]
@@ -148,6 +149,7 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
         self.assertIn("macd_bullish_cross", result.strategies)
         self.assertEqual(result.latest_signal_age_candles, 0)
         self.assertEqual(result.latest_signal_timestamp, "11")
+        self.assertEqual(result.strategy_signal_timestamps["macd_bullish_cross"], "11")
 
     def test_rank_results_filters_and_sorts(self):
         low = scan_candles("NSE_EQ|LOW", self.candles([1, 2, 3, 4, 5, 6]), {}, {}, 2, 1, 3, 6, 3, 5)

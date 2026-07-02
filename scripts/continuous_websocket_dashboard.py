@@ -119,12 +119,18 @@ def load_instruments_from_summary(path: Path, limit: int = 0) -> list[Instrument
 
 
 def result_to_dict(result: OfflineScannerResult) -> dict:
+    strategy_signal_ages = {
+        strategy: (result.candle_count - 1) - signal_index
+        for strategy, signal_index in sorted(result.strategy_signal_indexes.items())
+    }
     return {
         "instrument_key": result.instrument_key,
         "symbol": result.symbol,
         "score": round(result.score, 4),
         "signal_count": result.signal_count,
         "strategies": sorted(result.strategies),
+        "strategy_signal_ages": strategy_signal_ages,
+        "strategy_signal_timestamps": dict(sorted(result.strategy_signal_timestamps.items())),
         "latest_close": result.latest_close,
         "latest_rsi": result.latest_rsi,
         "latest_signal_age_candles": result.latest_signal_age_candles,
@@ -219,6 +225,63 @@ def has_fresh_live_signal(result: OfflineScannerResult, instrument_key: str, liv
     return True
 
 
+def strategy_score(strategy: str) -> float:
+    base_scores = {
+        "rsi_bullish_divergence": 0.80,
+        "macd_bullish_cross": 0.70,
+    }
+    base = base_scores.get(strategy, 0.0)
+    weight = DEFAULT_WEIGHTS.get(strategy, 1.0)
+    return base * (weight if weight > 0 else 1.0)
+
+
+def keep_fresh_live_strategies(result: OfflineScannerResult, instrument_key: str, live_states, max_signal_age_candles: int) -> bool:
+    if instrument_key not in live_states:
+        result.diagnostic = "waiting for live quote"
+        return False
+
+    fresh_strategies = []
+    fresh_indexes = {}
+    fresh_timestamps = {}
+    stale_strategies = []
+    for strategy in result.strategies:
+        signal_index = result.strategy_signal_indexes.get(strategy)
+        if signal_index is None:
+            stale_strategies.append(strategy)
+            continue
+        age = (result.candle_count - 1) - signal_index
+        if age <= max_signal_age_candles:
+            fresh_strategies.append(strategy)
+            fresh_indexes[strategy] = signal_index
+            fresh_timestamps[strategy] = result.strategy_signal_timestamps.get(strategy, "")
+        else:
+            stale_strategies.append(strategy)
+
+    result.strategies = fresh_strategies
+    result.strategy_signal_indexes = fresh_indexes
+    result.strategy_signal_timestamps = fresh_timestamps
+    result.bullish_rsi_divergence = "rsi_bullish_divergence" in fresh_strategies
+    if "macd_bullish_cross" not in fresh_strategies:
+        result.macd = None
+    result.signal_count = len(fresh_strategies)
+    result.score = sum(strategy_score(strategy) for strategy in fresh_strategies)
+    if fresh_indexes:
+        result.latest_signal_index = max(fresh_indexes.values())
+        result.latest_signal_age_candles = (result.candle_count - 1) - result.latest_signal_index
+        result.latest_signal_timestamp = next(
+            (timestamp for strategy, timestamp in fresh_timestamps.items() if fresh_indexes[strategy] == result.latest_signal_index),
+            "",
+        )
+        result.diagnostic = "ranked" if not stale_strategies else "ranked with stale strategies removed: " + ",".join(sorted(stale_strategies))
+        return True
+
+    result.latest_signal_index = None
+    result.latest_signal_age_candles = None
+    result.latest_signal_timestamp = ""
+    result.diagnostic = "no fresh scanner signal"
+    return False
+
+
 def scan_snapshot(
     sqlite_path: Path,
     labels_csv: Path | None,
@@ -249,7 +312,7 @@ def scan_snapshot(
                 macd_signal_period=9,
                 min_candles=40,
             )
-            if has_fresh_live_signal(result, instrument.key, live_states, max_signal_age_candles):
+            if keep_fresh_live_strategies(result, instrument.key, live_states, max_signal_age_candles):
                 results.append(result)
     return rank_results(results, minimum_score=0.01, top_n=top_n, include_all=False, min_latest_close=min_latest_close)
 

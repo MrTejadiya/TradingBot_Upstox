@@ -14,6 +14,7 @@ from scripts.continuous_websocket_dashboard import (
     DashboardSnapshot,
     build_parser,
     has_fresh_live_signal,
+    keep_fresh_live_strategies,
     load_instruments_from_summary,
     market_close_deadline,
     render_html,
@@ -115,6 +116,36 @@ class ContinuousWebsocketDashboardTests(unittest.TestCase):
         self.assertEqual(stale.diagnostic, "stale signal age 2 candles")
         self.assertFalse(has_fresh_live_signal(missing_live, "NSE_EQ|BBB", {}, 1))
         self.assertEqual(missing_live.diagnostic, "waiting for live quote")
+
+    def test_keep_fresh_live_strategies_removes_stale_strategy_contribution(self):
+        result = OfflineScannerResult(
+            instrument_key="NSE_EQ|EXCELSOFT",
+            symbol="EXCELSOFT",
+            score=1.66,
+            signal_count=2,
+            strategies=["macd_bullish_cross", "rsi_bullish_divergence"],
+            candle_count=147,
+            strategy_signal_indexes={
+                "rsi_bullish_divergence": 144,
+                "macd_bullish_cross": 146,
+            },
+            strategy_signal_timestamps={
+                "rsi_bullish_divergence": "2026-06-30T00:00:00+05:30",
+                "macd_bullish_cross": "2026-07-02T00:00:00+05:30",
+            },
+            latest_signal_age_candles=0,
+            latest_signal_timestamp="2026-07-02T00:00:00+05:30",
+        )
+
+        kept = keep_fresh_live_strategies(result, "NSE_EQ|EXCELSOFT", {"NSE_EQ|EXCELSOFT": object()}, 1)
+
+        self.assertTrue(kept)
+        self.assertEqual(result.strategies, ["macd_bullish_cross"])
+        self.assertEqual(result.signal_count, 1)
+        self.assertAlmostEqual(result.score, 0.70)
+        self.assertEqual(result.latest_signal_age_candles, 0)
+        self.assertEqual(result.latest_signal_timestamp, "2026-07-02T00:00:00+05:30")
+        self.assertIn("stale strategies removed", result.diagnostic)
 
     def test_write_json_snapshot_outputs_valid_json(self):
         with tempfile.TemporaryDirectory() as directory:

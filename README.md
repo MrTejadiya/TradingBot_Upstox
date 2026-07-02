@@ -365,7 +365,10 @@ arrived and the scanner signal is fresh. `--max-signal-age-candles 1` is the
 default: MACD crosses must occur on the live candle, while RSI pivot divergence
 may use the immediately previous candle because a pivot needs a confirming
 right-side candle. The CSV, dashboard, and JSON API expose
-`latest_signal_age_candles` and `latest_signal_timestamp` for review.
+`latest_signal_age_candles` and `latest_signal_timestamp` for review. The JSON
+API also exposes `strategy_signal_ages` and `strategy_signal_timestamps`; stale
+individual strategies are removed before ranking so an old RSI divergence cannot
+inflate a row that is otherwise fresh because of a live MACD cross.
 
 Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.

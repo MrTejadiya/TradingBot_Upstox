@@ -50,6 +50,7 @@ class OfflineScannerResult:
     chart_path: str = ""
     diagnostic: str = ""
     strategy_signal_indexes: dict[str, int] = field(default_factory=dict)
+    strategy_signal_timestamps: dict[str, str] = field(default_factory=dict)
     latest_signal_index: int | None = None
     latest_signal_age_candles: int | None = None
     latest_signal_timestamp: str = ""
@@ -187,6 +188,7 @@ def scan_candles(
         result.strategies.append(strategy)
         if divergence.bullish_signal_index is not None:
             result.strategy_signal_indexes[strategy] = divergence.bullish_signal_index
+            result.strategy_signal_timestamps[strategy] = candles[divergence.bullish_signal_index].timestamp
         result.score += apply_weight(0.80, strategy, weights)
         result.signal_count += 1
 
@@ -197,6 +199,7 @@ def scan_candles(
         strategy = "macd_bullish_cross"
         result.strategies.append(strategy)
         result.strategy_signal_indexes[strategy] = len(candles) - 1
+        result.strategy_signal_timestamps[strategy] = candles[-1].timestamp
         result.score += apply_weight(0.70, strategy, weights)
         result.signal_count += 1
 
