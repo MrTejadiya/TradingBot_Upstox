@@ -3,7 +3,9 @@
 #include "tradingbot/app/cli.hpp"
 #include "tradingbot/infra/config.hpp"
 #include "tradingbot/infra/instrument_csv.hpp"
+#include "tradingbot/infra/upstox_instrument_json_cache.hpp"
 #include "tradingbot/infra/upstox_instrument_json.hpp"
+#include "tradingbot/infra/win_http_transport.hpp"
 #include "tradingbot/persistence/sqlite_database.hpp"
 #include "tradingbot/persistence/sqlite_instrument_store.hpp"
 #include "tradingbot/persistence/sqlite_order_history_reader.hpp"
@@ -17,6 +19,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace tradingbot::app {
 namespace {
@@ -94,7 +97,6 @@ bool persist_configured_instruments(const std::shared_ptr<persistence::SqliteDat
         }
         instruments = loaded.instruments;
     } else {
-        const auto instruments_path = resolve_configured_path(config_path, config.input.upstox_instruments_json);
         infra::UpstoxInstrumentJsonLoadOptions options;
         options.enabled = config.input.default_enabled;
         options.quantity = config.input.default_quantity;
@@ -103,7 +105,26 @@ bool persist_configured_instruments(const std::shared_ptr<persistence::SqliteDat
         options.strategy_profile = config.input.default_strategy_profile;
         options.notes = config.input.default_notes;
 
-        const auto loaded = infra::load_upstox_instruments_json_file(instruments_path.string(), options);
+        infra::UpstoxInstrumentJsonLoadResult loaded;
+        if (!config.input.upstox_instruments_url.empty()) {
+            const auto cache_path = resolve_configured_path(config_path, config.input.upstox_instruments_cache);
+            infra::UpstoxInstrumentJsonCache cache(std::make_shared<infra::WinHttpTransport>());
+            const auto acquired = cache.load({
+                .url = config.input.upstox_instruments_url,
+                .cache_path = cache_path.string(),
+                .refresh = config.input.refresh_upstox_instruments,
+                .allow_stale_cache = config.input.allow_stale_upstox_instruments_cache,
+                .force_ipv4 = config.upstox.force_ipv4,
+            });
+            if (!acquired.ok) {
+                err << acquired.error << "\n";
+                return false;
+            }
+            loaded = infra::load_upstox_instruments_json_text(acquired.json_text, options);
+        } else {
+            const auto instruments_path = resolve_configured_path(config_path, config.input.upstox_instruments_json);
+            loaded = infra::load_upstox_instruments_json_file(instruments_path.string(), options);
+        }
         if (!loaded.ok) {
             for (const auto& error : loaded.errors) {
                 err << error << "\n";

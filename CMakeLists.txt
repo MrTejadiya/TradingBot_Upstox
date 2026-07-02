@@ -46,6 +46,7 @@ add_library(tradingbot_core
     src/infra/upstox_api_client.cpp
     src/infra/upstox_instrument_json_cache.cpp
     src/infra/upstox_instrument_json.cpp
+    src/infra/win_http_transport.cpp
     src/order/dry_run_dispatcher.cpp
     src/order/live_order_dispatcher.cpp
     src/order/order_monitor.cpp
@@ -102,6 +103,10 @@ target_include_directories(tradingbot_core
 )
 
 target_compile_features(tradingbot_core PUBLIC cxx_std_20)
+
+if(WIN32)
+    target_link_libraries(tradingbot_core PUBLIC winhttp)
+endif()
 
 function(copy_sqlite_runtime target_name)
     if(WIN32 AND SQLite3_RUNTIME_LIBRARY)

@@ -162,6 +162,63 @@ std::string upstox_json_config(const std::filesystem::path& sqlite_path, const s
     })json";
 }
 
+std::string upstox_json_url_cache_config(const std::filesystem::path& sqlite_path, const std::string& cache_path) {
+    return R"json({
+        "app": {
+            "mode": "dry-run",
+            "live_trading_enabled": false
+        },
+        "upstox": {
+            "access_token_env": "UPSTOX_ACCESS_TOKEN",
+            "force_ipv4": true
+        },
+        "input": {
+            "instrument_source": "upstox_json",
+            "upstox_instruments_url": "https://assets.upstox.com/complete.json.gz",
+            "upstox_instruments_cache": ")json" +
+           cache_path + R"json(",
+            "refresh_upstox_instruments": false,
+            "allow_stale_upstox_instruments_cache": true,
+            "default_enabled": true,
+            "default_quantity": 3,
+            "default_max_position_qty": 9,
+            "default_target_profit_pct": 5.5,
+            "default_notes": "cached universe"
+        },
+        "market_data": {
+            "candle_intervals": ["1d"],
+            "max_quote_age_seconds": 300.0
+        },
+        "strategies": {
+            "buy_signal_mode": "weighted_score",
+            "sell_signal_mode": "first_exit_wins",
+            "min_buy_score": 0.65
+        },
+        "exit_rules": {
+            "default_target_profit_pct": 10.0,
+            "default_stop_loss_pct": 3.0,
+            "max_holding_duration_hours": 720.0
+        },
+        "risk": {
+            "max_orders_per_day": 20,
+            "max_order_value": 25000.0,
+            "max_daily_traded_value": 100000.0
+        },
+        "rate_limits": {
+            "order_api": {
+                "safe_requests_per_second": 2.0
+            }
+        },
+        "storage": {
+            "sqlite_path": ")json" +
+           json_path(sqlite_path) + R"json("
+        },
+        "logging": {
+            "log_directory": "logs"
+        }
+    })json";
+}
+
 void write_upstox_instruments_json(const std::filesystem::path& path) {
     std::ofstream file(path);
     file << R"json([
@@ -184,6 +241,19 @@ void write_upstox_instruments_json(const std::filesystem::path& path) {
             "name": "RELIANCE FUT",
             "instrument_type": "FUT",
             "instrument_key": "NSE_FO|12345"
+        }
+    ])json";
+}
+
+void write_upstox_cache_json(const std::filesystem::path& path) {
+    std::ofstream file(path);
+    file << R"json([
+        {
+            "segment": "NSE_EQ",
+            "name": "CACHE ONLY LTD",
+            "instrument_type": "EQ",
+            "instrument_key": "NSE_EQ|INE123A01010",
+            "trading_symbol": "CACHEONLY"
         }
     ])json";
 }
@@ -368,6 +438,34 @@ void configured_dry_run_persists_upstox_json_instrument_universe() {
     std::filesystem::remove(db_path);
 }
 
+void configured_dry_run_uses_upstox_url_cache_when_refresh_is_disabled() {
+    const auto db_path = test_path("tradingbot_app_runner_upstox_url_cache.sqlite3");
+    const auto config_dir = std::filesystem::temp_directory_path();
+    const auto config_path = config_dir / "tradingbot_app_runner_upstox_url_cache_config.json";
+    const auto cache_path = config_dir / "tradingbot_app_runner_upstox_url_cache.json";
+    write_upstox_cache_json(cache_path);
+    write_config(config_path, upstox_json_url_cache_config(db_path, cache_path.filename().string()));
+
+    std::ostringstream out;
+    std::ostringstream err;
+    const auto code = tradingbot::app::run_app({"--config", config_path.string()}, out, err);
+
+    require(code == 0, "configured dry-run with Upstox URL cache should run");
+    {
+        auto database = std::make_shared<tradingbot::persistence::SqliteDatabase>(db_path.string());
+        require(count_rows(*database, "instruments") == 1, "URL cache import should persist instrument");
+        require(count_rows(*database, "instruments",
+                           " WHERE instrument_key = 'NSE_EQ|INE123A01010' AND symbol = 'CACHEONLY' "
+                           "AND quantity = 3 AND max_position_quantity = 9 "
+                           "AND target_profit_pct = 5.5 AND notes = 'cached universe'") == 1,
+                "persisted cached Upstox instrument should use configured defaults");
+    }
+
+    std::filesystem::remove(cache_path);
+    std::filesystem::remove(config_path);
+    std::filesystem::remove(db_path);
+}
+
 void configured_dry_run_fails_when_instrument_csv_is_missing() {
     const auto db_path = test_path("tradingbot_app_runner_missing_instruments.sqlite3");
     const auto config_path = test_path("tradingbot_app_runner_missing_instruments.json");
@@ -451,6 +549,7 @@ int main() {
     configured_dry_run_persists_instruments_relative_to_config();
     configured_dry_run_persists_nse_preferred_instrument_universe();
     configured_dry_run_persists_upstox_json_instrument_universe();
+    configured_dry_run_uses_upstox_url_cache_when_refresh_is_disabled();
     configured_dry_run_fails_when_instrument_csv_is_missing();
     configured_dry_run_fails_when_upstox_json_is_missing();
     cli_mode_overrides_config_mode();
