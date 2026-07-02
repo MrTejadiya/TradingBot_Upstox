@@ -250,6 +250,27 @@ The repository does not currently include an `instruments.csv` file. Place the
 instrument CSV in the workspace or pass its absolute path before running the
 bulk download.
 
+The downloader can also use the Upstox complete instrument JSON directly:
+
+```powershell
+python scripts\download_historical_candles.py `
+  --upstox-instruments-url https://assets.upstox.com/market-quote/instruments/exchange/complete.json.gz `
+  --token-file upstox_token.txt `
+  --sqlite-path data\historical_candles.sqlite3 `
+  --summary-csv reports\historical-candle-download-summary.csv `
+  --from-date 2025-07-01 `
+  --to-date 2026-07-02 `
+  --unit days `
+  --interval 1 `
+  --throttle-seconds 0.12
+```
+
+For a safe trial run before downloading the full universe, add `--limit 10`.
+The Upstox complete file changes over time; at the time this workflow was
+added, it contained about 2,399 NSE/BSE equity instruments after filtering to
+`segment` `NSE_EQ`/`BSE_EQ` and `instrument_type=EQ`. NSE/BSE duplicate equity
+listings are collapsed to NSE before downloading candles.
+
 Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.
 
