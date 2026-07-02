@@ -214,6 +214,42 @@ historical candle APIs. If both NSE and BSE keys are supplied for the same
 equity identity, the script scans the NSE key and drops the BSE duplicate; a
 BSE key is used only when no matching NSE key is present.
 
+## Historical Candle Bulk Download
+
+Use `scripts/download_historical_candles.py` to download and persist historical
+candles for every instrument in an instrument CSV file. This script is
+read-only against Upstox: it calls historical candle endpoints only and does not
+touch order endpoints.
+
+```powershell
+python scripts\download_historical_candles.py `
+  --instruments-csv instruments.csv `
+  --token-file upstox_token.txt `
+  --sqlite-path data\historical_candles.sqlite3 `
+  --summary-csv reports\historical-candle-download-summary.csv `
+  --from-date 2025-07-01 `
+  --to-date 2026-07-02 `
+  --unit days `
+  --interval 1 `
+  --throttle-seconds 0.12
+```
+
+The downloader expects the same CSV format as the app instrument import and
+uses `instrument_key` plus `symbol`. By default, rows with `enabled=false` are
+skipped; pass `--include-disabled` to download them too. NSE/BSE duplicate
+equity listings are collapsed to NSE, and BSE is used only when no matching NSE
+listing exists.
+
+Downloaded candles are stored in the existing SQLite-compatible `candles` table
+with interval names such as `days:1`. Inserts use `INSERT OR REPLACE`, so the
+command can be safely rerun for the same instrument/date range. The summary CSV
+records per-instrument success, candle count, and any error so failed downloads
+can be retried.
+
+The repository does not currently include an `instruments.csv` file. Place the
+instrument CSV in the workspace or pass its absolute path before running the
+bulk download.
+
 Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.
 
