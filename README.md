@@ -281,16 +281,22 @@ SQLite without broker credentials, network calls, or order endpoints:
 python scripts\offline_historical_scanner_report.py `
   --sqlite-path data\historical_candles.sqlite3 `
   --output-csv reports\offline-historical-scanner-ranking.csv `
+  --labels-csv reports\historical-candle-download-summary.csv `
   --interval days:1 `
+  --min-latest-close 20 `
   --top-n 50
 ```
 
 The report combines bullish RSI divergence and bullish MACD crossover signals,
 applies configurable strategy weights, and writes a CSV with rank, score,
-contributing strategies, latest close, latest RSI, candle count, MACD values,
-and diagnostics. Override weights with repeated `--strategy-weight name=value`
-arguments, such as `--strategy-weight rsi_bullish_divergence=1.5`. Add
-`--include-all` when you want zero-score rows included for audit review.
+symbol, contributing strategies, latest close, latest RSI, candle count, MACD
+values, and diagnostics. By default, `--labels-csv` points at the historical
+download summary CSV, which already contains `label` and `instrument_key`
+columns. Use `--min-latest-close` and `--max-latest-close` to keep the report
+focused on an operator-reviewed price band. Override weights with repeated
+`--strategy-weight name=value` arguments, such as
+`--strategy-weight rsi_bullish_divergence=1.5`. Add `--include-all` when you
+want zero-score rows included for audit review.
 
 Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.

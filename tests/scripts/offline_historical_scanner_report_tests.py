@@ -14,6 +14,7 @@ from scripts.offline_historical_scanner_report import (
     build_parser,
     is_bullish_macd_cross,
     list_instrument_keys,
+    load_label_map,
     load_candles,
     parse_weights,
     rank_results,
@@ -79,10 +80,32 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
         self.assertEqual(keys, ["NSE_EQ|A", "NSE_EQ|B"])
         self.assertEqual([candle.close for candle in candles], [3, 4])
 
+    def test_load_label_map_reads_download_summary_csv(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "summary.csv"
+            path.write_text(
+                "label,instrument_key,status,candle_count,error\n"
+                "RELIANCE,NSE_EQ|INE002A01018,ok,247,\n",
+                encoding="utf-8",
+            )
+
+            labels = load_label_map(path)
+
+        self.assertEqual(labels, {"NSE_EQ|INE002A01018": "RELIANCE"})
+
+    def test_load_label_map_rejects_missing_required_columns(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "summary.csv"
+            path.write_text("symbol,key\nRELIANCE,NSE_EQ|INE002A01018\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "instrument_key and label"):
+                load_label_map(path)
+
     def test_detects_bullish_rsi_divergence_signal(self):
         result = scan_candles(
             instrument_key="NSE_EQ|RSI",
             candles=self.candles([10, 11, 9, 12, 8, 13, 7, 14, 15]),
+            label_map={"NSE_EQ|RSI": "RSI_TEST"},
             weights={"rsi_bullish_divergence": 1.25, "macd_bullish_cross": 1.0},
             rsi_period=2,
             wing_size=1,
@@ -93,6 +116,7 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
         )
 
         self.assertTrue(result.bullish_rsi_divergence)
+        self.assertEqual(result.symbol, "RSI_TEST")
         self.assertIn("rsi_bullish_divergence", result.strategies)
         self.assertAlmostEqual(result.score, 1.0)
 
@@ -106,10 +130,11 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
         self.assertGreater(snapshot.histogram, 0)
 
     def test_rank_results_filters_and_sorts(self):
-        low = scan_candles("NSE_EQ|LOW", self.candles([1, 2, 3, 4, 5, 6]), {}, 2, 1, 3, 6, 3, 5)
+        low = scan_candles("NSE_EQ|LOW", self.candles([1, 2, 3, 4, 5, 6]), {}, {}, 2, 1, 3, 6, 3, 5)
         high = scan_candles(
             "NSE_EQ|HIGH",
             self.candles([10, 11, 9, 12, 8, 13, 7, 14, 15]),
+            {},
             {"rsi_bullish_divergence": 2.0},
             2,
             1,
@@ -123,6 +148,36 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
 
         self.assertEqual([item.instrument_key for item in ranked], ["NSE_EQ|HIGH"])
 
+    def test_rank_results_applies_latest_close_filters(self):
+        cheap = scan_candles(
+            "NSE_EQ|CHEAP",
+            self.candles([1, 2, 1, 3, 0.9, 4, 0.8, 2, 1.5]),
+            {},
+            {"rsi_bullish_divergence": 1.0},
+            2,
+            1,
+            3,
+            6,
+            3,
+            5,
+        )
+        normal = scan_candles(
+            "NSE_EQ|NORMAL",
+            self.candles([10, 11, 9, 12, 8, 13, 7, 14, 15]),
+            {},
+            {"rsi_bullish_divergence": 1.0},
+            2,
+            1,
+            3,
+            6,
+            3,
+            5,
+        )
+
+        ranked = rank_results([cheap, normal], minimum_score=0.01, top_n=0, include_all=False, min_latest_close=5.0)
+
+        self.assertEqual([item.instrument_key for item in ranked], ["NSE_EQ|NORMAL"])
+
     def test_run_report_writes_ranked_csv(self):
         with tempfile.TemporaryDirectory() as directory:
             db_path = Path(directory) / "candles.sqlite3"
@@ -134,10 +189,18 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
                     "NSE_EQ|FLAT": [10, 10, 10, 10, 10, 10, 10, 10, 10],
                 },
             )
+            labels = Path(directory) / "labels.csv"
+            labels.write_text(
+                "label,instrument_key,status,candle_count,error\n"
+                "RSI_LABEL,NSE_EQ|RSI,ok,9,\n"
+                "FLAT_LABEL,NSE_EQ|FLAT,ok,9,\n",
+                encoding="utf-8",
+            )
 
             ranked = run_report(
                 sqlite_path=db_path,
                 output_csv=output,
+                labels_csv=labels,
                 interval="days:1",
                 rsi_period=2,
                 wing_size=1,
@@ -146,6 +209,8 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
                 macd_signal_period=3,
                 min_candles=5,
                 minimum_score=0.01,
+                min_latest_close=5.0,
+                max_latest_close=0.0,
                 top_n=10,
                 limit=0,
                 weights={"rsi_bullish_divergence": 1.0, "macd_bullish_cross": 1.0},
@@ -154,8 +219,10 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
                 rows = list(csv.DictReader(file))
 
         self.assertEqual([item.instrument_key for item in ranked], ["NSE_EQ|RSI"])
+        self.assertEqual(ranked[0].symbol, "RSI_LABEL")
         self.assertEqual(rows[0]["rank"], "1")
         self.assertEqual(rows[0]["instrument_key"], "NSE_EQ|RSI")
+        self.assertEqual(rows[0]["symbol"], "RSI_LABEL")
         self.assertEqual(rows[0]["bullish_rsi_divergence"], "true")
 
     def test_write_report_outputs_header_for_empty_results(self):
@@ -179,6 +246,9 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
             ["--wing-size", "0"],
             ["--macd-fast-period", "6", "--macd-slow-period", "6"],
             ["--minimum-score", "-0.1"],
+            ["--min-latest-close", "-1"],
+            ["--max-latest-close", "-1"],
+            ["--min-latest-close", "100", "--max-latest-close", "10"],
             ["--top-n", "-1"],
             ["--limit", "-1"],
             ["--strategy-weight", "bad"],

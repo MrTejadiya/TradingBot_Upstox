@@ -19,6 +19,7 @@ from scripts.live_rsi_divergence_scan import Candle, analyze_candles
 
 DEFAULT_SQLITE_PATH = "data/historical_candles.sqlite3"
 DEFAULT_OUTPUT_CSV = "reports/offline-historical-scanner-ranking.csv"
+DEFAULT_LABELS_CSV = "reports/historical-candle-download-summary.csv"
 DEFAULT_INTERVAL = "days:1"
 DEFAULT_WEIGHTS = {
     "rsi_bullish_divergence": 1.20,
@@ -36,6 +37,7 @@ class MacdSnapshot:
 @dataclass
 class OfflineScannerResult:
     instrument_key: str
+    symbol: str = ""
     score: float = 0.0
     signal_count: int = 0
     strategies: list[str] = field(default_factory=list)
@@ -127,9 +129,31 @@ def list_instrument_keys(connection: sqlite3.Connection, interval: str, limit: i
     return [str(row[0]) for row in rows]
 
 
+def load_label_map(path: Path | None) -> dict[str, str]:
+    if path is None or not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file)
+        if reader.fieldnames is None:
+            return {}
+        headers = {name.strip().lower() for name in reader.fieldnames}
+        if "instrument_key" not in headers or "label" not in headers:
+            raise ValueError("label CSV must contain instrument_key and label columns")
+
+        labels: dict[str, str] = {}
+        for row in reader:
+            normalized = {str(key).strip().lower(): (value or "").strip() for key, value in row.items()}
+            key = normalized.get("instrument_key", "")
+            label = normalized.get("label", "")
+            if key and label:
+                labels[key] = label
+        return labels
+
+
 def scan_candles(
     instrument_key: str,
     candles: list[Candle],
+    label_map: dict[str, str],
     weights: dict[str, float],
     rsi_period: int,
     wing_size: int,
@@ -138,7 +162,11 @@ def scan_candles(
     macd_signal_period: int,
     min_candles: int,
 ) -> OfflineScannerResult:
-    result = OfflineScannerResult(instrument_key=instrument_key, candle_count=len(candles))
+    result = OfflineScannerResult(
+        instrument_key=instrument_key,
+        symbol=label_map.get(instrument_key, ""),
+        candle_count=len(candles),
+    )
     if len(candles) < min_candles:
         result.diagnostic = "insufficient candles"
         return result
@@ -173,8 +201,30 @@ def scan_candles(
     return result
 
 
-def rank_results(results: list[OfflineScannerResult], minimum_score: float, top_n: int, include_all: bool) -> list[OfflineScannerResult]:
-    selected = [result for result in results if include_all or result.score >= minimum_score]
+def within_latest_close_filter(result: OfflineScannerResult, min_latest_close: float, max_latest_close: float) -> bool:
+    if result.latest_close <= 0.0:
+        return False
+    if min_latest_close > 0.0 and result.latest_close < min_latest_close:
+        return False
+    if max_latest_close > 0.0 and result.latest_close > max_latest_close:
+        return False
+    return True
+
+
+def rank_results(
+    results: list[OfflineScannerResult],
+    minimum_score: float,
+    top_n: int,
+    include_all: bool,
+    min_latest_close: float = 0.0,
+    max_latest_close: float = 0.0,
+) -> list[OfflineScannerResult]:
+    selected = [
+        result
+        for result in results
+        if (include_all or result.score >= minimum_score)
+        and (include_all or within_latest_close_filter(result, min_latest_close, max_latest_close))
+    ]
     selected.sort(key=lambda item: (-item.score, -item.signal_count, item.instrument_key))
     if top_n > 0:
         selected = selected[:top_n]
@@ -189,6 +239,7 @@ def write_report(path: Path, results: list[OfflineScannerResult]) -> None:
             [
                 "rank",
                 "instrument_key",
+                "symbol",
                 "score",
                 "signal_count",
                 "strategies",
@@ -209,6 +260,7 @@ def write_report(path: Path, results: list[OfflineScannerResult]) -> None:
                 [
                     index,
                     result.instrument_key,
+                    result.symbol,
                     f"{result.score:.4f}",
                     result.signal_count,
                     ";".join(sorted(result.strategies)),
@@ -244,6 +296,7 @@ def parse_weights(values: list[str]) -> dict[str, float]:
 def run_report(
     sqlite_path: Path,
     output_csv: Path,
+    labels_csv: Path | None,
     interval: str,
     rsi_period: int,
     wing_size: int,
@@ -252,6 +305,8 @@ def run_report(
     macd_signal_period: int,
     min_candles: int,
     minimum_score: float,
+    min_latest_close: float,
+    max_latest_close: float,
     top_n: int,
     limit: int,
     weights: dict[str, float],
@@ -259,12 +314,14 @@ def run_report(
 ) -> list[OfflineScannerResult]:
     if not sqlite_path.exists():
         raise FileNotFoundError(sqlite_path)
+    label_map = load_label_map(labels_csv)
     with contextlib.closing(sqlite3.connect(sqlite_path)) as connection:
         instrument_keys = list_instrument_keys(connection, interval, limit)
         results = [
             scan_candles(
                 instrument_key=instrument_key,
                 candles=load_candles(connection, instrument_key, interval),
+                label_map=label_map,
                 weights=weights,
                 rsi_period=rsi_period,
                 wing_size=wing_size,
@@ -275,7 +332,7 @@ def run_report(
             )
             for instrument_key in instrument_keys
         ]
-    ranked = rank_results(results, minimum_score, top_n, include_all)
+    ranked = rank_results(results, minimum_score, top_n, include_all, min_latest_close, max_latest_close)
     write_report(output_csv, ranked)
     return ranked
 
@@ -284,6 +341,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Rank scanner candidates from local historical candle SQLite data.")
     parser.add_argument("--sqlite-path", default=DEFAULT_SQLITE_PATH)
     parser.add_argument("--output-csv", default=DEFAULT_OUTPUT_CSV)
+    parser.add_argument("--labels-csv", default=DEFAULT_LABELS_CSV, help="Optional CSV with instrument_key and label columns")
     parser.add_argument("--interval", default=DEFAULT_INTERVAL)
     parser.add_argument("--rsi-period", type=int, default=14)
     parser.add_argument("--wing-size", type=int, default=1)
@@ -292,6 +350,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--macd-signal-period", type=int, default=9)
     parser.add_argument("--min-candles", type=int, default=40)
     parser.add_argument("--minimum-score", type=float, default=0.01)
+    parser.add_argument("--min-latest-close", type=float, default=0.0)
+    parser.add_argument("--max-latest-close", type=float, default=0.0)
     parser.add_argument("--top-n", type=int, default=50)
     parser.add_argument("--limit", type=int, default=0, help="Limit instruments read from SQLite for quick checks")
     parser.add_argument("--strategy-weight", action="append", default=[], help="Override scanner weight, for example macd_bullish_cross=1.5")
@@ -307,6 +367,12 @@ def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         parser.error("--macd-fast-period must be less than --macd-slow-period")
     if args.minimum_score < 0:
         parser.error("--minimum-score must be non-negative")
+    if args.min_latest_close < 0:
+        parser.error("--min-latest-close must be non-negative")
+    if args.max_latest_close < 0:
+        parser.error("--max-latest-close must be non-negative")
+    if args.max_latest_close > 0 and args.min_latest_close > args.max_latest_close:
+        parser.error("--min-latest-close must be less than or equal to --max-latest-close")
     if args.top_n < 0:
         parser.error("--top-n must be non-negative")
     if args.limit < 0:
@@ -326,6 +392,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     ranked = run_report(
         sqlite_path=Path(args.sqlite_path),
         output_csv=Path(args.output_csv),
+        labels_csv=Path(args.labels_csv) if args.labels_csv else None,
         interval=args.interval,
         rsi_period=args.rsi_period,
         wing_size=args.wing_size,
@@ -334,6 +401,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         macd_signal_period=args.macd_signal_period,
         min_candles=args.min_candles,
         minimum_score=args.minimum_score,
+        min_latest_close=args.min_latest_close,
+        max_latest_close=args.max_latest_close,
         top_n=args.top_n,
         limit=args.limit,
         weights=weights,
@@ -342,7 +411,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     print(f"ranked={len(ranked)} output={args.output_csv}")
     for result in ranked[:10]:
         print(
-            f"{result.instrument_key} | score={result.score:.4f} | signals={result.signal_count} | "
+            f"{result.symbol or result.instrument_key} | {result.instrument_key} | score={result.score:.4f} | signals={result.signal_count} | "
             f"strategies={','.join(sorted(result.strategies)) or 'none'} | close={result.latest_close:.2f}"
         )
     return 0
