@@ -44,3 +44,7 @@ Invoke-Step "Run Python offline scanner report tests" {
 Invoke-Step "Run Python live websocket scanner tests" {
     python tests\scripts\live_websocket_scanner_tests.py
 }
+
+Invoke-Step "Run Python continuous websocket dashboard tests" {
+    python tests\scripts\continuous_websocket_dashboard_tests.py
+}

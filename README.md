@@ -339,6 +339,29 @@ ticks, creates a provisional current-day candle per instrument, and writes CSV
 plus optional PNG evidence. Use `--dry-run` to print the subscription payload
 without connecting.
 
+For continuous all-instrument tracking until market close, run the dashboard
+scanner:
+
+```powershell
+.\.venv-live-websocket\Scripts\python.exe scripts\continuous_websocket_dashboard.py `
+  --sqlite-path data\historical_candles.sqlite3 `
+  --instruments-csv reports\historical-candle-download-summary.csv `
+  --labels-csv reports\historical-candle-download-summary.csv `
+  --output-csv reports\continuous-websocket-scanner-ranking.csv `
+  --output-json reports\continuous-websocket-scanner-results.json `
+  --scan-interval-seconds 30 `
+  --market-close 15:30 `
+  --host 127.0.0.1 `
+  --port 8765
+```
+
+Open `http://127.0.0.1:8765/` for the local dashboard or
+`http://127.0.0.1:8765/api/results` for JSON. By default,
+`--instrument-limit 0` means all tracked instruments from the summary CSV are
+subscribed. The current equity universe is below the documented V3 LTPC
+single-category limit of 5,000 keys. Use `--duration-seconds` for a shorter
+supervised run.
+
 Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.
 
