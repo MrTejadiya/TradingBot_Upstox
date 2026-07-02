@@ -8,6 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
+#include <unordered_map>
 
 namespace tradingbot::infra {
 namespace {
@@ -138,6 +139,59 @@ core::Exchange parse_exchange(const std::string& value) {
     return core::Exchange::Unknown;
 }
 
+core::Exchange exchange_from_key(const std::string& key) {
+    if (key.rfind("NSE_EQ|", 0) == 0) {
+        return core::Exchange::NseEq;
+    }
+    if (key.rfind("BSE_EQ|", 0) == 0) {
+        return core::Exchange::BseEq;
+    }
+    return core::Exchange::Unknown;
+}
+
+std::string listing_identity(const std::string& key) {
+    const auto separator = key.find('|');
+    if (separator == std::string::npos || separator + 1 >= key.size()) {
+        return key;
+    }
+    return key.substr(separator + 1);
+}
+
+bool preferred_over(const core::Instrument& candidate, const core::Instrument& current) {
+    const auto candidate_exchange = exchange_from_key(candidate.key.value);
+    const auto current_exchange = exchange_from_key(current.key.value);
+    return candidate_exchange == core::Exchange::NseEq && current_exchange == core::Exchange::BseEq;
+}
+
+std::vector<core::Instrument> prefer_nse_duplicate_listings(std::vector<core::Instrument> instruments) {
+    std::vector<core::Instrument> selected;
+    std::unordered_map<std::string, std::size_t> index_by_identity;
+    selected.reserve(instruments.size());
+
+    for (auto& instrument : instruments) {
+        const auto exchange = exchange_from_key(instrument.key.value);
+        if (exchange != core::Exchange::NseEq && exchange != core::Exchange::BseEq) {
+            selected.push_back(std::move(instrument));
+            continue;
+        }
+
+        const auto identity = listing_identity(instrument.key.value);
+        const auto found = index_by_identity.find(identity);
+        if (found == index_by_identity.end()) {
+            index_by_identity.emplace(identity, selected.size());
+            selected.push_back(std::move(instrument));
+            continue;
+        }
+
+        auto& current = selected[found->second];
+        if (preferred_over(instrument, current)) {
+            current = std::move(instrument);
+        }
+    }
+
+    return selected;
+}
+
 }  // namespace
 
 InstrumentCsvLoadResult load_instruments_csv_file(const std::string& path) {
@@ -252,6 +306,7 @@ InstrumentCsvLoadResult load_instruments_csv_text(const std::string& csv_text, c
         result.instruments.push_back(std::move(instrument));
     }
 
+    result.instruments = prefer_nse_duplicate_listings(std::move(result.instruments));
     result.ok = options.skip_invalid_rows ? !result.instruments.empty() : result.errors.empty();
     return result;
 }

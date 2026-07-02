@@ -115,6 +115,40 @@ void rejects_duplicate_instrument_keys() {
     require(result.errors.back().find("duplicate instrument_key") != std::string::npos, "duplicate error should be clear");
 }
 
+void prefers_nse_when_same_equity_exists_on_nse_and_bse() {
+    const auto result = tradingbot::infra::load_instruments_csv_text(
+        "instrument_key,symbol,enabled,quantity,max_position_qty,target_profit_pct\n"
+        "BSE_EQ|INE002A01018,RELIANCE_BSE,true,1,2,10\n"
+        "NSE_EQ|INE002A01018,RELIANCE_NSE,true,3,6,12\n");
+
+    require(result.ok, "NSE/BSE duplicate listing CSV should load");
+    require(result.instruments.size() == 1, "duplicate NSE/BSE listing should collapse to one instrument");
+    require(result.instruments.front().key.value == "NSE_EQ|INE002A01018", "NSE key should be preferred");
+    require(result.instruments.front().symbol == "RELIANCE_NSE", "preferred NSE row data should be retained");
+    require(result.instruments.front().quantity == 3, "preferred NSE quantity should be retained");
+}
+
+void prefers_nse_when_nse_row_appears_before_bse() {
+    const auto result = tradingbot::infra::load_instruments_csv_text(
+        "instrument_key,symbol,enabled,quantity,max_position_qty,target_profit_pct\n"
+        "NSE_EQ|INE002A01018,RELIANCE_NSE,true,3,6,12\n"
+        "BSE_EQ|INE002A01018,RELIANCE_BSE,true,1,2,10\n");
+
+    require(result.ok, "NSE/BSE duplicate listing CSV should load");
+    require(result.instruments.size() == 1, "duplicate NSE/BSE listing should collapse to one instrument");
+    require(result.instruments.front().key.value == "NSE_EQ|INE002A01018", "NSE key should remain preferred");
+}
+
+void keeps_bse_when_no_nse_listing_exists() {
+    const auto result = tradingbot::infra::load_instruments_csv_text(
+        "instrument_key,symbol,enabled,quantity,max_position_qty,target_profit_pct\n"
+        "BSE_EQ|INE999A01010,BSE_ONLY,true,1,2,10\n");
+
+    require(result.ok, "BSE-only CSV should load");
+    require(result.instruments.size() == 1, "BSE-only instrument should remain");
+    require(result.instruments.front().key.value == "BSE_EQ|INE999A01010", "BSE-only key should be retained");
+}
+
 void rejects_invalid_enabled_value() {
     const auto result = tradingbot::infra::load_instruments_csv_text(
         "instrument_key,symbol,enabled,quantity,max_position_qty,target_profit_pct\n"
@@ -179,6 +213,9 @@ int main() {
     loads_from_file();
     reports_malformed_numeric_field_without_throwing();
     rejects_duplicate_instrument_keys();
+    prefers_nse_when_same_equity_exists_on_nse_and_bse();
+    prefers_nse_when_nse_row_appears_before_bse();
+    keeps_bse_when_no_nse_listing_exists();
     rejects_invalid_enabled_value();
     rejects_non_positive_quantities_and_negative_percentages();
     rejects_non_positive_manual_prices();
