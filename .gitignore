@@ -9,6 +9,7 @@ github_settings.txt
 upstox_token.txt
 .env
 *.local
+.venv*/
 
 # Generated/intermediate files
 __pycache__/

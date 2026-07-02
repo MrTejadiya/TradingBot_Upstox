@@ -302,6 +302,43 @@ the report writes PNG evidence charts for ranked candidates and stores the file
 path in the `chart_path` CSV column. Use `--max-charts` to limit PNG generation
 when the ranked list is large.
 
+## Online Websocket Scanner
+
+Use `scripts/live_websocket_scanner.py` to run the scanner with live Upstox
+Market Data Feed V3 ticks. This runner uses the market-data authorize endpoint
+and websocket feed only; it does not call order placement or cancellation
+endpoints.
+
+Install the websocket dependency once:
+
+```powershell
+python -m venv .venv-live-websocket
+.\.venv-live-websocket\Scripts\python.exe -m pip install -r requirements-live-websocket.txt
+```
+
+Run a bounded scan against the top rows from the latest offline ranking:
+
+```powershell
+.\.venv-live-websocket\Scripts\python.exe scripts\live_websocket_scanner.py `
+  --sqlite-path data\historical_candles.sqlite3 `
+  --ranking-csv reports\offline-historical-scanner-ranking.csv `
+  --labels-csv reports\historical-candle-download-summary.csv `
+  --output-csv reports\live-websocket-scanner-ranking.csv `
+  --chart-dir reports\live-websocket-scanner-charts `
+  --instrument-limit 50 `
+  --duration-seconds 60 `
+  --mode ltpc `
+  --top-n 25 `
+  --max-charts 10
+```
+
+The script reads `UPSTOX_ACCESS_TOKEN` first and falls back to
+`upstox_token.txt`. It authorizes `GET /v3/feed/market-data-feed/authorize`, opens
+the returned `wss://` URL, sends a binary V3 subscription payload, decodes LTPC
+ticks, creates a provisional current-day candle per instrument, and writes CSV
+plus optional PNG evidence. Use `--dry-run` to print the subscription payload
+without connecting.
+
 Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.
 

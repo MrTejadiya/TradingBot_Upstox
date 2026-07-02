@@ -40,3 +40,7 @@ Invoke-Step "Run Python historical downloader tests" {
 Invoke-Step "Run Python offline scanner report tests" {
     python tests\scripts\offline_historical_scanner_report_tests.py
 }
+
+Invoke-Step "Run Python live websocket scanner tests" {
+    python tests\scripts\live_websocket_scanner_tests.py
+}
