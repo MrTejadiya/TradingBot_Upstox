@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
 import datetime as dt
 import sqlite3
@@ -160,7 +161,7 @@ def download_all(
     selected = instruments[:limit] if limit > 0 else instruments
     database_path.parent.mkdir(parents=True, exist_ok=True)
     results: list[DownloadResult] = []
-    with sqlite3.connect(database_path) as connection:
+    with contextlib.closing(sqlite3.connect(database_path)) as connection:
         apply_schema(connection)
         for index, instrument in enumerate(selected):
             try:

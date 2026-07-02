@@ -32,3 +32,7 @@ Invoke-Step "Run C++ regression tests" {
 Invoke-Step "Run Python scanner tests" {
     python tests\scripts\live_rsi_divergence_scan_tests.py
 }
+
+Invoke-Step "Run Python historical downloader tests" {
+    python tests\scripts\download_historical_candles_tests.py
+}
