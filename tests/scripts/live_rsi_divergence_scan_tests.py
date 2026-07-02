@@ -17,6 +17,8 @@ from scripts.live_rsi_divergence_scan import (
     has_bullish_divergence,
     historical_candle_path,
     parse_candles,
+    parse_instrument,
+    prefer_nse_duplicate_listings,
     rsi_series,
     validate_args,
     write_chart,
@@ -93,6 +95,34 @@ class LiveRsiDivergenceScanTests(unittest.TestCase):
             chart_filename("RELIANCE_BSE", "BSE_EQ|INE002A01018"),
             "RELIANCE_BSE_BSE_EQ_INE002A01018.png",
         )
+
+    def test_prefer_nse_duplicate_listings_keeps_nse_for_same_equity(self):
+        instruments = prefer_nse_duplicate_listings(
+            [
+                parse_instrument("RELIANCE_BSE=BSE_EQ|INE002A01018"),
+                parse_instrument("RELIANCE_NSE=NSE_EQ|INE002A01018"),
+            ]
+        )
+
+        self.assertEqual(len(instruments), 1)
+        self.assertEqual(instruments[0].label, "RELIANCE_NSE")
+        self.assertEqual(instruments[0].key, "NSE_EQ|INE002A01018")
+
+    def test_prefer_nse_duplicate_listings_keeps_bse_when_no_nse_exists(self):
+        instruments = prefer_nse_duplicate_listings([parse_instrument("BSE_ONLY=BSE_EQ|INE999A01010")])
+
+        self.assertEqual(len(instruments), 1)
+        self.assertEqual(instruments[0].key, "BSE_EQ|INE999A01010")
+
+    def test_prefer_nse_duplicate_listings_keeps_unrelated_exchanges(self):
+        instruments = prefer_nse_duplicate_listings(
+            [
+                parse_instrument("NSE_OTHER=NSE_EQ|INE111A01010"),
+                parse_instrument("BSE_ONLY=BSE_EQ|INE999A01010"),
+            ]
+        )
+
+        self.assertEqual([instrument.key for instrument in instruments], ["NSE_EQ|INE111A01010", "BSE_EQ|INE999A01010"])
 
     def test_write_chart_creates_png(self):
         candles = [

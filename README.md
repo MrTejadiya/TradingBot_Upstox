@@ -118,7 +118,6 @@ RSI divergence evidence charts without touching any order endpoint:
 python scripts\live_rsi_divergence_scan.py `
   --token-file upstox_token.txt `
   --instrument RELIANCE_NSE=NSE_EQ|INE002A01018 `
-  --instrument RELIANCE_BSE=BSE_EQ|INE002A01018 `
   --from-date 2026-01-01 `
   --to-date 2026-07-01 `
   --output-dir reports\rsi-divergence
@@ -129,7 +128,9 @@ token file. If explicit dates are omitted, it uses `--lookback-days` to build a
 date range. `--output-dir` writes PNG charts that mark price pivots, RSI pivots,
 and detected divergence pairs. The script validates date ranges and scanner
 parameters before token loading or network calls, and it only calls Upstox
-historical candle APIs.
+historical candle APIs. If both NSE and BSE keys are supplied for the same
+equity identity, the script scans the NSE key and drops the BSE duplicate; a
+BSE key is used only when no matching NSE key is present.
 
 Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.

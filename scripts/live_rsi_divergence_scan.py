@@ -79,6 +79,40 @@ def parse_instrument(value: str) -> Instrument:
     return Instrument(label=value.strip(), key=value.strip())
 
 
+def exchange_for_key(key: str) -> str:
+    if key.startswith("NSE_EQ|"):
+        return "NSE_EQ"
+    if key.startswith("BSE_EQ|"):
+        return "BSE_EQ"
+    return ""
+
+
+def listing_identity(key: str) -> str:
+    return key.split("|", 1)[1] if "|" in key else key
+
+
+def prefer_nse_duplicate_listings(instruments: list[Instrument]) -> list[Instrument]:
+    selected: list[Instrument] = []
+    index_by_identity: dict[str, int] = {}
+    for instrument in instruments:
+        exchange = exchange_for_key(instrument.key)
+        if exchange not in {"NSE_EQ", "BSE_EQ"}:
+            selected.append(instrument)
+            continue
+
+        identity = listing_identity(instrument.key)
+        existing_index = index_by_identity.get(identity)
+        if existing_index is None:
+            index_by_identity[identity] = len(selected)
+            selected.append(instrument)
+            continue
+
+        existing = selected[existing_index]
+        if exchange == "NSE_EQ" and exchange_for_key(existing.key) == "BSE_EQ":
+            selected[existing_index] = instrument
+    return selected
+
+
 def historical_candle_path(instrument_key: str, unit: str, interval: int, from_date: str, to_date: str) -> str:
     encoded = urllib.parse.quote(instrument_key, safe="")
     return f"/v3/historical-candle/{encoded}/{unit}/{interval}/{to_date}/{from_date}"
@@ -426,10 +460,10 @@ def main(argv: Iterable[str] | None = None) -> int:
     args = parser.parse_args(list(argv) if argv is not None else None)
     validate_args(parser, args)
     from_date, to_date = (args.from_date, args.to_date) if args.from_date and args.to_date else default_dates(args.lookback_days)
-    instruments = [parse_instrument(value) for value in args.instrument] or [
+    instruments = prefer_nse_duplicate_listings([parse_instrument(value) for value in args.instrument] or [
         Instrument("RELIANCE_NSE", "NSE_EQ|INE002A01018"),
         Instrument("RELIANCE_BSE", "BSE_EQ|INE002A01018"),
-    ]
+    ])
     token = read_access_token(Path(args.token_file))
 
     print("Read-only scan: historical candle endpoints only; no order endpoints are called.")
