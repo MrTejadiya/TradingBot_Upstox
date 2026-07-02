@@ -151,6 +151,41 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
         self.assertEqual(result.latest_signal_timestamp, "11")
         self.assertEqual(result.strategy_signal_timestamps["macd_bullish_cross"], "11")
 
+    def test_scan_candles_detects_provisional_bullish_rsi_divergence_on_latest_candle(self):
+        result = scan_candles(
+            instrument_key="NSE_EQ|PROV",
+            candles=self.candles([100, 102, 99, 103, 98, 104, 97, 105, 96, 70, 70, 76, 74]),
+            label_map={},
+            weights={"rsi_bullish_divergence_provisional": 1.0},
+            rsi_period=2,
+            wing_size=1,
+            macd_fast_period=3,
+            macd_slow_period=6,
+            macd_signal_period=3,
+            min_candles=5,
+        )
+
+        self.assertIn("rsi_bullish_divergence_provisional", result.strategies)
+        self.assertEqual(result.latest_signal_age_candles, 0)
+        self.assertEqual(result.strategy_signal_timestamps["rsi_bullish_divergence_provisional"], "12")
+
+    def test_provisional_bullish_rsi_divergence_invalidates_when_latest_is_not_lower_low(self):
+        candles = self.candles([100, 102, 99, 103, 98, 104, 97, 105, 96, 70, 70, 76, 77])
+        result = scan_candles(
+            instrument_key="NSE_EQ|PROV",
+            candles=candles,
+            label_map={},
+            weights={"rsi_bullish_divergence_provisional": 1.0},
+            rsi_period=2,
+            wing_size=1,
+            macd_fast_period=3,
+            macd_slow_period=6,
+            macd_signal_period=3,
+            min_candles=5,
+        )
+
+        self.assertNotIn("rsi_bullish_divergence_provisional", result.strategies)
+
     def test_rank_results_filters_and_sorts(self):
         low = scan_candles("NSE_EQ|LOW", self.candles([1, 2, 3, 4, 5, 6]), {}, {}, 2, 1, 3, 6, 3, 5)
         high = scan_candles(

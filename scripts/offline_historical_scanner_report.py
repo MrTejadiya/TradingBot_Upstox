@@ -23,6 +23,7 @@ DEFAULT_LABELS_CSV = "reports/historical-candle-download-summary.csv"
 DEFAULT_INTERVAL = "days:1"
 DEFAULT_WEIGHTS = {
     "rsi_bullish_divergence": 1.20,
+    "rsi_bullish_divergence_provisional": 0.90,
     "macd_bullish_cross": 1.00,
 }
 
@@ -100,6 +101,38 @@ def is_bullish_macd_cross(values: list[float], fast_period: int, slow_period: in
     previous = snapshots[-2]
     current = snapshots[-1]
     return previous.histogram <= 0.0 and current.histogram > 0.0, current
+
+
+def provisional_bullish_rsi_divergence_index(candles: list[Candle], rsi_values: list[float | None], wing_size: int) -> int | None:
+    if len(candles) < max(3, wing_size + 2):
+        return None
+    candidate_index = len(candles) - 1
+    candidate_rsi = rsi_values[candidate_index]
+    if candidate_rsi is None:
+        return None
+
+    closes = [candle.close for candle in candles]
+    candidate_close = closes[candidate_index]
+    for offset in range(1, wing_size + 1):
+        if candidate_close >= closes[candidate_index - offset]:
+            return None
+
+    confirmed_lows = [index for index in range(wing_size, candidate_index - wing_size + 1) if rsi_values[index] is not None]
+    confirmed_lows = [
+        index
+        for index in confirmed_lows
+        if all(closes[index] < closes[index - offset] and closes[index] < closes[index + offset] for offset in range(1, wing_size + 1))
+    ]
+    if not confirmed_lows:
+        return None
+
+    previous_index = confirmed_lows[-1]
+    previous_rsi = rsi_values[previous_index]
+    if previous_rsi is None:
+        return None
+    if candidate_close < closes[previous_index] and candidate_rsi > previous_rsi:
+        return candidate_index
+    return None
 
 
 def load_candles(connection: sqlite3.Connection, instrument_key: str, interval: str) -> list[Candle]:
@@ -190,6 +223,15 @@ def scan_candles(
             result.strategy_signal_indexes[strategy] = divergence.bullish_signal_index
             result.strategy_signal_timestamps[strategy] = candles[divergence.bullish_signal_index].timestamp
         result.score += apply_weight(0.80, strategy, weights)
+        result.signal_count += 1
+
+    provisional_index = provisional_bullish_rsi_divergence_index(candles, divergence.rsi_values, wing_size)
+    if provisional_index is not None:
+        strategy = "rsi_bullish_divergence_provisional"
+        result.strategies.append(strategy)
+        result.strategy_signal_indexes[strategy] = provisional_index
+        result.strategy_signal_timestamps[strategy] = candles[provisional_index].timestamp
+        result.score += apply_weight(0.65, strategy, weights)
         result.signal_count += 1
 
     closes = [candle.close for candle in candles]

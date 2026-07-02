@@ -369,6 +369,11 @@ right-side candle. The CSV, dashboard, and JSON API expose
 API also exposes `strategy_signal_ages` and `strategy_signal_timestamps`; stale
 individual strategies are removed before ranking so an old RSI divergence cannot
 inflate a row that is otherwise fresh because of a live MACD cross.
+For faster intraday capture, the scanner also emits
+`rsi_bullish_divergence_provisional` when today's dynamic candle is acting like
+an unconfirmed lower-low pivot while RSI is holding a higher low versus the last
+confirmed pivot. This provisional signal is separate from confirmed
+`rsi_bullish_divergence` and can disappear as live prices change.
 
 Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.

@@ -40,6 +40,7 @@ DEFAULT_INTERVAL = "days:1"
 DEFAULT_MIN_LATEST_CLOSE = 20.0
 DEFAULT_WEIGHTS = {
     "rsi_bullish_divergence": 1.20,
+    "rsi_bullish_divergence_provisional": 0.90,
     "macd_bullish_cross": 1.00,
 }
 

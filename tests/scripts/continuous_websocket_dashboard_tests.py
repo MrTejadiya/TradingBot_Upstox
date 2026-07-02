@@ -147,6 +147,25 @@ class ContinuousWebsocketDashboardTests(unittest.TestCase):
         self.assertEqual(result.latest_signal_timestamp, "2026-07-02T00:00:00+05:30")
         self.assertIn("stale strategies removed", result.diagnostic)
 
+    def test_keep_fresh_live_strategies_keeps_provisional_rsi_as_live_signal(self):
+        result = OfflineScannerResult(
+            instrument_key="NSE_EQ|AAA",
+            symbol="AAA",
+            score=0.585,
+            signal_count=1,
+            strategies=["rsi_bullish_divergence_provisional"],
+            candle_count=20,
+            strategy_signal_indexes={"rsi_bullish_divergence_provisional": 19},
+            strategy_signal_timestamps={"rsi_bullish_divergence_provisional": "2026-07-02T00:00:00+05:30"},
+        )
+
+        kept = keep_fresh_live_strategies(result, "NSE_EQ|AAA", {"NSE_EQ|AAA": object()}, 1)
+
+        self.assertTrue(kept)
+        self.assertEqual(result.strategies, ["rsi_bullish_divergence_provisional"])
+        self.assertEqual(result.latest_signal_age_candles, 0)
+        self.assertAlmostEqual(result.score, 0.585)
+
     def test_write_json_snapshot_outputs_valid_json(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "snapshot.json"

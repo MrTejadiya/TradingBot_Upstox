@@ -228,6 +228,7 @@ def has_fresh_live_signal(result: OfflineScannerResult, instrument_key: str, liv
 def strategy_score(strategy: str) -> float:
     base_scores = {
         "rsi_bullish_divergence": 0.80,
+        "rsi_bullish_divergence_provisional": 0.65,
         "macd_bullish_cross": 0.70,
     }
     base = base_scores.get(strategy, 0.0)
