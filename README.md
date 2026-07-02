@@ -271,6 +271,27 @@ added, it contained about 2,399 NSE/BSE equity instruments after filtering to
 `segment` `NSE_EQ`/`BSE_EQ` and `instrument_type=EQ`. NSE/BSE duplicate equity
 listings are collapsed to NSE before downloading candles.
 
+## Offline Historical Scanner Report
+
+After historical candles are stored locally, use
+`scripts/offline_historical_scanner_report.py` to rank scanner candidates from
+SQLite without broker credentials, network calls, or order endpoints:
+
+```powershell
+python scripts\offline_historical_scanner_report.py `
+  --sqlite-path data\historical_candles.sqlite3 `
+  --output-csv reports\offline-historical-scanner-ranking.csv `
+  --interval days:1 `
+  --top-n 50
+```
+
+The report combines bullish RSI divergence and bullish MACD crossover signals,
+applies configurable strategy weights, and writes a CSV with rank, score,
+contributing strategies, latest close, latest RSI, candle count, MACD values,
+and diagnostics. Override weights with repeated `--strategy-weight name=value`
+arguments, such as `--strategy-weight rsi_bullish_divergence=1.5`. Add
+`--include-all` when you want zero-score rows included for audit review.
+
 Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.
 
