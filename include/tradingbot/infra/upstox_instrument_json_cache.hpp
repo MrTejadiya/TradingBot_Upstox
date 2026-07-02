@@ -18,6 +18,7 @@ struct UpstoxInstrumentJsonCacheOptions {
 struct UpstoxInstrumentJsonCacheResult {
     bool ok{false};
     std::string json_text;
+    std::string metadata_path;
     bool from_cache{false};
     bool downloaded{false};
     std::string error;

@@ -1,5 +1,7 @@
 #include "tradingbot/infra/upstox_instrument_json_cache.hpp"
 
+#include "tradingbot/persistence/sqlite_time.hpp"
+
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -47,6 +49,52 @@ bool write_cache_file(const std::string& path, const std::string& text, std::str
     }
 }
 
+std::string metadata_path_for(const std::string& cache_path) {
+    return cache_path + ".metadata.json";
+}
+
+std::string json_escape(const std::string& value) {
+    std::string escaped;
+    escaped.reserve(value.size());
+    for (const auto ch : value) {
+        switch (ch) {
+            case '\\':
+                escaped += "\\\\";
+                break;
+            case '"':
+                escaped += "\\\"";
+                break;
+            case '\n':
+                escaped += "\\n";
+                break;
+            case '\r':
+                escaped += "\\r";
+                break;
+            case '\t':
+                escaped += "\\t";
+                break;
+            default:
+                escaped.push_back(ch);
+                break;
+        }
+    }
+    return escaped;
+}
+
+bool write_metadata_file(const UpstoxInstrumentJsonCacheOptions& options, int status_code, std::size_t bytes,
+                         std::string& metadata_path, std::string& error) {
+    metadata_path = metadata_path_for(options.cache_path);
+    std::ostringstream metadata;
+    metadata << "{\n"
+             << "  \"source_url\": \"" << json_escape(options.url) << "\",\n"
+             << "  \"cache_path\": \"" << json_escape(options.cache_path) << "\",\n"
+             << "  \"refreshed_at_utc\": \"" << persistence::format_sqlite_timestamp(core::Clock::now()) << "\",\n"
+             << "  \"status_code\": " << status_code << ",\n"
+             << "  \"bytes\": " << bytes << "\n"
+             << "}\n";
+    return write_cache_file(metadata_path, metadata.str(), error);
+}
+
 UpstoxInstrumentJsonCacheResult cache_result(const std::string& cache_path) {
     UpstoxInstrumentJsonCacheResult result;
     result.json_text = read_text_file(cache_path);
@@ -56,6 +104,7 @@ UpstoxInstrumentJsonCacheResult cache_result(const std::string& cache_path) {
     }
     result.ok = true;
     result.from_cache = true;
+    result.metadata_path = metadata_path_for(cache_path);
     return result;
 }
 
@@ -134,10 +183,15 @@ UpstoxInstrumentJsonCacheResult UpstoxInstrumentJsonCache::load(
     if (!write_cache_file(options.cache_path, response.body, write_error)) {
         return {.error = "unable to write Upstox instrument JSON cache: " + write_error};
     }
+    std::string metadata_path;
+    if (!write_metadata_file(options, response.status_code, response.body.size(), metadata_path, write_error)) {
+        return {.error = "unable to write Upstox instrument JSON cache metadata: " + write_error};
+    }
 
     return {
         .ok = true,
         .json_text = response.body,
+        .metadata_path = metadata_path,
         .from_cache = false,
         .downloaded = true,
     };

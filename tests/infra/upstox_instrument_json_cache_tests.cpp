@@ -79,8 +79,11 @@ void reads_existing_cache_when_refresh_is_disabled() {
 
 void downloads_and_writes_cache_when_refresh_is_enabled() {
     const auto path = test_path("tradingbot_upstox_cache_download.json");
+    const auto metadata_path = std::filesystem::path{path.string() + ".metadata.json"};
+    std::filesystem::remove(metadata_path);
+    const std::string body = "[{\"instrument_key\":\"NSE_EQ|LIVE\"}]";
     auto transport = std::make_shared<FakeTransport>();
-    transport->responses = {{.status_code = 200, .body = "[{\"instrument_key\":\"NSE_EQ|LIVE\"}]"}};
+    transport->responses = {{.status_code = 200, .body = body}};
     tradingbot::infra::UpstoxInstrumentJsonCache cache(transport);
 
     const auto result = cache.load({
@@ -95,10 +98,43 @@ void downloads_and_writes_cache_when_refresh_is_enabled() {
     require(!result.from_cache, "download should not report cache source");
     require(result.json_text.find("LIVE") != std::string::npos, "download text should be returned");
     require(read_text(path).find("LIVE") != std::string::npos, "download should be written to cache");
+    require(result.metadata_path == metadata_path.string(), "metadata path should be reported");
+    const auto metadata = read_text(metadata_path);
+    require(metadata.find("\"source_url\": \"https://assets.upstox.com/complete.json.gz\"") != std::string::npos,
+            "metadata should include source URL");
+    require(metadata.find(path.filename().string()) != std::string::npos, "metadata should include cache path");
+    require(metadata.find("\"status_code\": 200") != std::string::npos, "metadata should include status code");
+    require(metadata.find("\"bytes\": " + std::to_string(body.size())) != std::string::npos,
+            "metadata should include byte count");
+    require(metadata.find("\"refreshed_at_utc\": \"") != std::string::npos, "metadata should include refresh time");
     require(transport->requests.size() == 1, "one request should be sent");
     require(transport->requests.front().method == "GET", "request should use GET");
     require(transport->requests.front().url == "https://assets.upstox.com/complete.json.gz", "URL should pass through");
     require(transport->requests.front().force_ipv4, "force IPv4 should pass to transport");
+    std::filesystem::remove(metadata_path);
+    std::filesystem::remove(path);
+}
+
+void cache_hit_reports_metadata_path_without_rewriting_metadata() {
+    const auto path = test_path("tradingbot_upstox_cache_metadata_hit.json");
+    const auto metadata_path = std::filesystem::path{path.string() + ".metadata.json"};
+    write_text(path, "[{\"instrument_key\":\"NSE_EQ|CACHE\"}]");
+    write_text(metadata_path, "existing metadata");
+    auto transport = std::make_shared<FakeTransport>();
+    tradingbot::infra::UpstoxInstrumentJsonCache cache(transport);
+
+    const auto result = cache.load({
+        .url = "https://assets.upstox.com/complete.json.gz",
+        .cache_path = path.string(),
+        .refresh = false,
+    });
+
+    require(result.ok, "cache hit should succeed");
+    require(result.from_cache, "cache hit should report cache");
+    require(result.metadata_path == metadata_path.string(), "cache hit should report metadata path");
+    require(read_text(metadata_path) == "existing metadata", "cache hit should not rewrite metadata");
+    require(transport->requests.empty(), "cache hit should not call transport");
+    std::filesystem::remove(metadata_path);
     std::filesystem::remove(path);
 }
 
@@ -179,6 +215,7 @@ void transport_exception_uses_stale_cache() {
 int main() {
     reads_existing_cache_when_refresh_is_disabled();
     downloads_and_writes_cache_when_refresh_is_enabled();
+    cache_hit_reports_metadata_path_without_rewriting_metadata();
     falls_back_to_cache_when_download_fails();
     fails_when_download_fails_and_no_cache_exists();
     local_cache_mode_reads_cache_without_transport();
