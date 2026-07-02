@@ -107,6 +107,87 @@ void write_duplicate_listing_instruments_csv(const std::filesystem::path& path) 
     file << "NSE_EQ|INE002A01018,RELIANCE_NSE,true,3,12,11.0,nse preferred\n";
 }
 
+std::string upstox_json_config(const std::filesystem::path& sqlite_path, const std::string& upstox_json) {
+    return R"json({
+        "app": {
+            "mode": "dry-run",
+            "live_trading_enabled": false
+        },
+        "upstox": {
+            "access_token_env": "UPSTOX_ACCESS_TOKEN",
+            "force_ipv4": true
+        },
+        "input": {
+            "instrument_source": "upstox_json",
+            "upstox_instruments_json": ")json" +
+           upstox_json + R"json(",
+            "default_enabled": false,
+            "default_quantity": 2,
+            "default_max_position_qty": 8,
+            "default_target_profit_pct": 6.5,
+            "default_strategy_profile": "scanner",
+            "default_notes": "complete universe"
+        },
+        "market_data": {
+            "candle_intervals": ["1d"],
+            "max_quote_age_seconds": 300.0
+        },
+        "strategies": {
+            "buy_signal_mode": "weighted_score",
+            "sell_signal_mode": "first_exit_wins",
+            "min_buy_score": 0.65
+        },
+        "exit_rules": {
+            "default_target_profit_pct": 10.0,
+            "default_stop_loss_pct": 3.0,
+            "max_holding_duration_hours": 720.0
+        },
+        "risk": {
+            "max_orders_per_day": 20,
+            "max_order_value": 25000.0,
+            "max_daily_traded_value": 100000.0
+        },
+        "rate_limits": {
+            "order_api": {
+                "safe_requests_per_second": 2.0
+            }
+        },
+        "storage": {
+            "sqlite_path": ")json" +
+           json_path(sqlite_path) + R"json("
+        },
+        "logging": {
+            "log_directory": "logs"
+        }
+    })json";
+}
+
+void write_upstox_instruments_json(const std::filesystem::path& path) {
+    std::ofstream file(path);
+    file << R"json([
+        {
+            "segment": "BSE_EQ",
+            "name": "RELIANCE INDUSTRIES LTD",
+            "instrument_type": "EQ",
+            "instrument_key": "BSE_EQ|INE002A01018",
+            "trading_symbol": "RELIANCE_BSE"
+        },
+        {
+            "segment": "NSE_EQ",
+            "name": "RELIANCE INDUSTRIES LTD",
+            "instrument_type": "EQ",
+            "instrument_key": "NSE_EQ|INE002A01018",
+            "trading_symbol": "RELIANCE_NSE"
+        },
+        {
+            "segment": "NSE_FO",
+            "name": "RELIANCE FUT",
+            "instrument_type": "FUT",
+            "instrument_key": "NSE_FO|12345"
+        }
+    ])json";
+}
+
 tradingbot::core::OrderRecord order_record() {
     return {
         .request =
@@ -256,6 +337,37 @@ void configured_dry_run_persists_nse_preferred_instrument_universe() {
     std::filesystem::remove(db_path);
 }
 
+void configured_dry_run_persists_upstox_json_instrument_universe() {
+    const auto db_path = test_path("tradingbot_app_runner_upstox_json.sqlite3");
+    const auto config_dir = std::filesystem::temp_directory_path();
+    const auto config_path = config_dir / "tradingbot_app_runner_upstox_json_config.json";
+    const auto instruments_path = config_dir / "tradingbot_app_runner_upstox_complete.json";
+    write_upstox_instruments_json(instruments_path);
+    write_config(config_path, upstox_json_config(db_path, instruments_path.filename().string()));
+
+    std::ostringstream out;
+    std::ostringstream err;
+    const auto code = tradingbot::app::run_app({"--config", config_path.string()}, out, err);
+
+    require(code == 0, "configured dry-run with Upstox JSON should run");
+    {
+        auto database = std::make_shared<tradingbot::persistence::SqliteDatabase>(db_path.string());
+        require(count_rows(*database, "instruments") == 1, "Upstox JSON import should persist supported universe");
+        require(count_rows(*database, "instruments",
+                           " WHERE instrument_key = 'NSE_EQ|INE002A01018' AND symbol = 'RELIANCE_NSE' "
+                           "AND enabled = 0 AND quantity = 2 AND max_position_quantity = 8 "
+                           "AND target_profit_pct = 6.5 AND strategy_profile = 'scanner' "
+                           "AND notes = 'complete universe'") == 1,
+                "persisted Upstox JSON instrument should use NSE preference and configured defaults");
+        require(count_rows(*database, "instruments", " WHERE instrument_key LIKE 'NSE_FO|%'") == 0,
+                "unsupported Upstox derivatives should not persist");
+    }
+
+    std::filesystem::remove(instruments_path);
+    std::filesystem::remove(config_path);
+    std::filesystem::remove(db_path);
+}
+
 void configured_dry_run_fails_when_instrument_csv_is_missing() {
     const auto db_path = test_path("tradingbot_app_runner_missing_instruments.sqlite3");
     const auto config_path = test_path("tradingbot_app_runner_missing_instruments.json");
@@ -272,6 +384,28 @@ void configured_dry_run_fails_when_instrument_csv_is_missing() {
     {
         auto database = std::make_shared<tradingbot::persistence::SqliteDatabase>(db_path.string());
         require(count_rows(*database, "bot_runs") == 0, "failed startup should not create bot run rows");
+    }
+
+    std::filesystem::remove(config_path);
+    std::filesystem::remove(db_path);
+}
+
+void configured_dry_run_fails_when_upstox_json_is_missing() {
+    const auto db_path = test_path("tradingbot_app_runner_missing_upstox_json.sqlite3");
+    const auto config_path = test_path("tradingbot_app_runner_missing_upstox_json.json");
+    write_config(config_path, upstox_json_config(db_path, "missing-upstox-complete.json"));
+
+    std::ostringstream out;
+    std::ostringstream err;
+    const auto code = tradingbot::app::run_app({"--config", config_path.string()}, out, err);
+
+    require(code != 0, "missing Upstox JSON should fail configured dry-run");
+    require(out.str().empty(), "missing Upstox JSON should not write normal output");
+    require(err.str().find("unable to open Upstox instrument JSON file") != std::string::npos,
+            "missing Upstox JSON error should be clear");
+    {
+        auto database = std::make_shared<tradingbot::persistence::SqliteDatabase>(db_path.string());
+        require(count_rows(*database, "bot_runs") == 0, "failed JSON startup should not create bot run rows");
     }
 
     std::filesystem::remove(config_path);
@@ -316,7 +450,9 @@ int main() {
     configured_dry_run_records_bot_run_lifecycle();
     configured_dry_run_persists_instruments_relative_to_config();
     configured_dry_run_persists_nse_preferred_instrument_universe();
+    configured_dry_run_persists_upstox_json_instrument_universe();
     configured_dry_run_fails_when_instrument_csv_is_missing();
+    configured_dry_run_fails_when_upstox_json_is_missing();
     cli_mode_overrides_config_mode();
     config_load_errors_are_reported();
     return 0;

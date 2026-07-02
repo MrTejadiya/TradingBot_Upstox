@@ -3,6 +3,7 @@
 #include "tradingbot/app/cli.hpp"
 #include "tradingbot/infra/config.hpp"
 #include "tradingbot/infra/instrument_csv.hpp"
+#include "tradingbot/infra/upstox_instrument_json.hpp"
 #include "tradingbot/persistence/sqlite_database.hpp"
 #include "tradingbot/persistence/sqlite_instrument_store.hpp"
 #include "tradingbot/persistence/sqlite_order_history_reader.hpp"
@@ -77,20 +78,46 @@ std::filesystem::path resolve_configured_path(const std::string& config_path, co
 bool persist_configured_instruments(const std::shared_ptr<persistence::SqliteDatabase>& database,
                                     const std::string& config_path, const infra::BotConfig& config,
                                     std::ostream& err) {
-    const auto instruments_path = resolve_configured_path(config_path, config.input.instruments_csv);
-    const auto loaded = infra::load_instruments_csv_file(instruments_path.string());
-    if (!loaded.ok) {
-        for (const auto& error : loaded.errors) {
-            err << error << "\n";
+    std::vector<core::Instrument> instruments;
+
+    if (config.input.instrument_source == infra::InstrumentSource::Csv) {
+        const auto instruments_path = resolve_configured_path(config_path, config.input.instruments_csv);
+        const auto loaded = infra::load_instruments_csv_file(instruments_path.string());
+        if (!loaded.ok) {
+            for (const auto& error : loaded.errors) {
+                err << error << "\n";
+            }
+            if (loaded.errors.empty()) {
+                err << "failed to load instrument CSV\n";
+            }
+            return false;
         }
-        if (loaded.errors.empty()) {
-            err << "failed to load instrument CSV\n";
+        instruments = loaded.instruments;
+    } else {
+        const auto instruments_path = resolve_configured_path(config_path, config.input.upstox_instruments_json);
+        infra::UpstoxInstrumentJsonLoadOptions options;
+        options.enabled = config.input.default_enabled;
+        options.quantity = config.input.default_quantity;
+        options.max_position_quantity = config.input.default_max_position_quantity;
+        options.target_profit_pct = config.input.default_target_profit_pct;
+        options.strategy_profile = config.input.default_strategy_profile;
+        options.notes = config.input.default_notes;
+
+        const auto loaded = infra::load_upstox_instruments_json_file(instruments_path.string(), options);
+        if (!loaded.ok) {
+            for (const auto& error : loaded.errors) {
+                err << error << "\n";
+            }
+            if (loaded.errors.empty()) {
+                err << "failed to load Upstox instrument JSON\n";
+            }
+            return false;
         }
-        return false;
+        instruments = loaded.instruments;
     }
 
     persistence::SqliteInstrumentStore store(database);
-    store.upsert_all(loaded.instruments);
+    store.upsert_all(instruments);
     return true;
 }
 
