@@ -14,7 +14,7 @@ from typing import Iterable
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.live_rsi_divergence_scan import Candle, analyze_candles
+from scripts.live_rsi_divergence_scan import Candle, analyze_candles, chart_filename, write_chart
 
 
 DEFAULT_SQLITE_PATH = "data/historical_candles.sqlite3"
@@ -47,6 +47,7 @@ class OfflineScannerResult:
     bullish_rsi_divergence: bool = False
     bearish_rsi_divergence: bool = False
     macd: MacdSnapshot | None = None
+    chart_path: str = ""
     diagnostic: str = ""
 
 
@@ -251,6 +252,7 @@ def write_report(path: Path, results: list[OfflineScannerResult]) -> None:
                 "macd",
                 "macd_signal",
                 "macd_histogram",
+                "chart_path",
                 "diagnostic",
             ]
         )
@@ -272,6 +274,7 @@ def write_report(path: Path, results: list[OfflineScannerResult]) -> None:
                     "" if macd is None else f"{macd.macd:.6f}",
                     "" if macd is None else f"{macd.signal:.6f}",
                     "" if macd is None else f"{macd.histogram:.6f}",
+                    result.chart_path,
                     result.diagnostic,
                 ]
             )
@@ -297,6 +300,7 @@ def run_report(
     sqlite_path: Path,
     output_csv: Path,
     labels_csv: Path | None,
+    chart_dir: Path | None,
     interval: str,
     rsi_period: int,
     wing_size: int,
@@ -308,6 +312,7 @@ def run_report(
     min_latest_close: float,
     max_latest_close: float,
     top_n: int,
+    max_charts: int,
     limit: int,
     weights: dict[str, float],
     include_all: bool = False,
@@ -315,26 +320,52 @@ def run_report(
     if not sqlite_path.exists():
         raise FileNotFoundError(sqlite_path)
     label_map = load_label_map(labels_csv)
+    candle_cache: dict[str, list[Candle]] = {}
     with contextlib.closing(sqlite3.connect(sqlite_path)) as connection:
         instrument_keys = list_instrument_keys(connection, interval, limit)
-        results = [
-            scan_candles(
-                instrument_key=instrument_key,
-                candles=load_candles(connection, instrument_key, interval),
-                label_map=label_map,
-                weights=weights,
-                rsi_period=rsi_period,
-                wing_size=wing_size,
-                macd_fast_period=macd_fast_period,
-                macd_slow_period=macd_slow_period,
-                macd_signal_period=macd_signal_period,
-                min_candles=min_candles,
+        results: list[OfflineScannerResult] = []
+        for instrument_key in instrument_keys:
+            candles = load_candles(connection, instrument_key, interval)
+            candle_cache[instrument_key] = candles
+            results.append(
+                scan_candles(
+                    instrument_key=instrument_key,
+                    candles=candles,
+                    label_map=label_map,
+                    weights=weights,
+                    rsi_period=rsi_period,
+                    wing_size=wing_size,
+                    macd_fast_period=macd_fast_period,
+                    macd_slow_period=macd_slow_period,
+                    macd_signal_period=macd_signal_period,
+                    min_candles=min_candles,
+                )
             )
-            for instrument_key in instrument_keys
-        ]
     ranked = rank_results(results, minimum_score, top_n, include_all, min_latest_close, max_latest_close)
+    write_charts(ranked, candle_cache, chart_dir, rsi_period, wing_size, max_charts)
     write_report(output_csv, ranked)
     return ranked
+
+
+def write_charts(
+    ranked: list[OfflineScannerResult],
+    candle_cache: dict[str, list[Candle]],
+    chart_dir: Path | None,
+    rsi_period: int,
+    wing_size: int,
+    max_charts: int,
+) -> None:
+    if chart_dir is None:
+        return
+    chart_dir.mkdir(parents=True, exist_ok=True)
+    selected = ranked[:max_charts] if max_charts > 0 else ranked
+    for result in selected:
+        candles = candle_cache.get(result.instrument_key, [])
+        if not candles:
+            continue
+        chart = chart_dir / chart_filename(result.symbol or result.instrument_key, result.instrument_key)
+        write_chart(chart, candles, analyze_candles(candles, period=rsi_period, wing_size=wing_size))
+        result.chart_path = str(chart)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -342,6 +373,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--sqlite-path", default=DEFAULT_SQLITE_PATH)
     parser.add_argument("--output-csv", default=DEFAULT_OUTPUT_CSV)
     parser.add_argument("--labels-csv", default=DEFAULT_LABELS_CSV, help="Optional CSV with instrument_key and label columns")
+    parser.add_argument("--chart-dir", help="Optional directory for PNG evidence charts for ranked candidates")
     parser.add_argument("--interval", default=DEFAULT_INTERVAL)
     parser.add_argument("--rsi-period", type=int, default=14)
     parser.add_argument("--wing-size", type=int, default=1)
@@ -353,6 +385,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-latest-close", type=float, default=0.0)
     parser.add_argument("--max-latest-close", type=float, default=0.0)
     parser.add_argument("--top-n", type=int, default=50)
+    parser.add_argument(
+        "--max-charts",
+        type=int,
+        default=25,
+        help="Maximum PNG charts to write when --chart-dir is set; 0 writes all ranked rows",
+    )
     parser.add_argument("--limit", type=int, default=0, help="Limit instruments read from SQLite for quick checks")
     parser.add_argument("--strategy-weight", action="append", default=[], help="Override scanner weight, for example macd_bullish_cross=1.5")
     parser.add_argument("--include-all", action="store_true", help="Write all scanned instruments, including zero-score rows")
@@ -375,6 +413,8 @@ def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         parser.error("--min-latest-close must be less than or equal to --max-latest-close")
     if args.top_n < 0:
         parser.error("--top-n must be non-negative")
+    if args.max_charts < 0:
+        parser.error("--max-charts must be non-negative")
     if args.limit < 0:
         parser.error("--limit must be non-negative")
     try:
@@ -393,6 +433,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         sqlite_path=Path(args.sqlite_path),
         output_csv=Path(args.output_csv),
         labels_csv=Path(args.labels_csv) if args.labels_csv else None,
+        chart_dir=Path(args.chart_dir) if args.chart_dir else None,
         interval=args.interval,
         rsi_period=args.rsi_period,
         wing_size=args.wing_size,
@@ -404,6 +445,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         min_latest_close=args.min_latest_close,
         max_latest_close=args.max_latest_close,
         top_n=args.top_n,
+        max_charts=args.max_charts,
         limit=args.limit,
         weights=weights,
         include_all=args.include_all,

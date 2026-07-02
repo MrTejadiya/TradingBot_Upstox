@@ -282,6 +282,7 @@ python scripts\offline_historical_scanner_report.py `
   --sqlite-path data\historical_candles.sqlite3 `
   --output-csv reports\offline-historical-scanner-ranking.csv `
   --labels-csv reports\historical-candle-download-summary.csv `
+  --chart-dir reports\offline-historical-scanner-charts `
   --interval days:1 `
   --min-latest-close 20 `
   --top-n 50
@@ -296,7 +297,10 @@ columns. Use `--min-latest-close` and `--max-latest-close` to keep the report
 focused on an operator-reviewed price band. Override weights with repeated
 `--strategy-weight name=value` arguments, such as
 `--strategy-weight rsi_bullish_divergence=1.5`. Add `--include-all` when you
-want zero-score rows included for audit review.
+want zero-score rows included for audit review. When `--chart-dir` is supplied,
+the report writes PNG evidence charts for ranked candidates and stores the file
+path in the `chart_path` CSV column. Use `--max-charts` to limit PNG generation
+when the ranked list is large.
 
 Portfolio sync reads available equity funds and long-term holdings from Upstox
 into the shared `PortfolioState` model for downstream risk and order decisions.

@@ -201,6 +201,7 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
                 sqlite_path=db_path,
                 output_csv=output,
                 labels_csv=labels,
+                chart_dir=None,
                 interval="days:1",
                 rsi_period=2,
                 wing_size=1,
@@ -212,6 +213,7 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
                 min_latest_close=5.0,
                 max_latest_close=0.0,
                 top_n=10,
+                max_charts=25,
                 limit=0,
                 weights={"rsi_bullish_divergence": 1.0, "macd_bullish_cross": 1.0},
             )
@@ -223,7 +225,50 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
         self.assertEqual(rows[0]["rank"], "1")
         self.assertEqual(rows[0]["instrument_key"], "NSE_EQ|RSI")
         self.assertEqual(rows[0]["symbol"], "RSI_LABEL")
+        self.assertIn("chart_path", rows[0])
+        self.assertEqual(rows[0]["chart_path"], "")
         self.assertEqual(rows[0]["bullish_rsi_divergence"], "true")
+
+    def test_run_report_writes_png_charts_for_ranked_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db_path = Path(directory) / "candles.sqlite3"
+            output = Path(directory) / "report.csv"
+            chart_dir = Path(directory) / "charts"
+            self.create_database(
+                db_path,
+                {
+                    "NSE_EQ|RSI": [10, 11, 9, 12, 8, 13, 7, 14, 15],
+                    "NSE_EQ|OTHER": [11, 12, 10, 13, 9, 14, 8, 15, 16],
+                },
+            )
+
+            ranked = run_report(
+                sqlite_path=db_path,
+                output_csv=output,
+                labels_csv=None,
+                chart_dir=chart_dir,
+                interval="days:1",
+                rsi_period=2,
+                wing_size=1,
+                macd_fast_period=3,
+                macd_slow_period=6,
+                macd_signal_period=3,
+                min_candles=5,
+                minimum_score=0.01,
+                min_latest_close=0.0,
+                max_latest_close=0.0,
+                top_n=10,
+                max_charts=1,
+                limit=0,
+                weights={"rsi_bullish_divergence": 1.0, "macd_bullish_cross": 1.0},
+            )
+            with output.open("r", encoding="utf-8") as file:
+                rows = list(csv.DictReader(file))
+            charted = [item for item in ranked if item.chart_path]
+            self.assertEqual(len(charted), 1)
+            self.assertTrue(Path(charted[0].chart_path).exists())
+            self.assertEqual(Path(charted[0].chart_path).read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
+            self.assertEqual(len([row for row in rows if row["chart_path"]]), 1)
 
     def test_write_report_outputs_header_for_empty_results(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -250,6 +295,7 @@ class OfflineHistoricalScannerReportTests(unittest.TestCase):
             ["--max-latest-close", "-1"],
             ["--min-latest-close", "100", "--max-latest-close", "10"],
             ["--top-n", "-1"],
+            ["--max-charts", "-1"],
             ["--limit", "-1"],
             ["--strategy-weight", "bad"],
             ["--strategy-weight", "macd_bullish_cross=0"],
