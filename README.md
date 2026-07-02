@@ -84,6 +84,10 @@ before output.
 The CSV loader reads `instrument_key` as the canonical identifier. `symbol` is
 display metadata only. Minimum supported columns are `instrument_key`, `symbol`,
 `enabled`, `quantity`, `max_position_qty`, and `target_profit_pct`.
+Exact duplicate `instrument_key` rows are invalid. When an NSE and BSE listing
+share the same equity identity, such as `NSE_EQ|INE...` and `BSE_EQ|INE...`,
+the loader keeps the NSE row and drops the BSE duplicate. A BSE row is retained
+when no matching NSE row is present.
 
 ## Logging
 
