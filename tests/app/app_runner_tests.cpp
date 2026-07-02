@@ -100,6 +100,13 @@ void write_instruments_csv(const std::filesystem::path& path) {
     file << "NSE_EQ|INE002A01018,RELIANCE,true,2,10,10.0,configured instrument\n";
 }
 
+void write_duplicate_listing_instruments_csv(const std::filesystem::path& path) {
+    std::ofstream file(path);
+    file << "instrument_key,symbol,enabled,quantity,max_position_qty,target_profit_pct,notes\n";
+    file << "BSE_EQ|INE002A01018,RELIANCE_BSE,true,1,2,9.0,bse duplicate\n";
+    file << "NSE_EQ|INE002A01018,RELIANCE_NSE,true,3,12,11.0,nse preferred\n";
+}
+
 tradingbot::core::OrderRecord order_record() {
     return {
         .request =
@@ -221,6 +228,34 @@ void configured_dry_run_persists_instruments_relative_to_config() {
     std::filesystem::remove(db_path);
 }
 
+void configured_dry_run_persists_nse_preferred_instrument_universe() {
+    const auto db_path = test_path("tradingbot_app_runner_nse_preferred.sqlite3");
+    const auto config_path = test_path("tradingbot_app_runner_nse_preferred.json");
+    const auto instruments_path = test_path("tradingbot_app_runner_nse_preferred.csv");
+    write_duplicate_listing_instruments_csv(instruments_path);
+    write_config(config_path, valid_config_json(db_path, "dry-run", instruments_path.filename().string()));
+
+    std::ostringstream out;
+    std::ostringstream err;
+    const auto code = tradingbot::app::run_app({"--config", config_path.string()}, out, err);
+
+    require(code == 0, "configured dry-run with NSE/BSE duplicate listing should run");
+    {
+        auto database = std::make_shared<tradingbot::persistence::SqliteDatabase>(db_path.string());
+        require(count_rows(*database, "instruments") == 1, "duplicate NSE/BSE listing should persist one row");
+        require(count_rows(*database, "instruments",
+                           " WHERE instrument_key = 'NSE_EQ|INE002A01018' AND symbol = 'RELIANCE_NSE' "
+                           "AND quantity = 3 AND notes = 'nse preferred'") == 1,
+                "persisted instrument should use NSE row data");
+        require(count_rows(*database, "instruments", " WHERE instrument_key LIKE 'BSE_EQ|%'") == 0,
+                "BSE duplicate should not persist");
+    }
+
+    std::filesystem::remove(instruments_path);
+    std::filesystem::remove(config_path);
+    std::filesystem::remove(db_path);
+}
+
 void configured_dry_run_fails_when_instrument_csv_is_missing() {
     const auto db_path = test_path("tradingbot_app_runner_missing_instruments.sqlite3");
     const auto config_path = test_path("tradingbot_app_runner_missing_instruments.json");
@@ -280,6 +315,7 @@ int main() {
     configured_show_orders_does_not_create_bot_run();
     configured_dry_run_records_bot_run_lifecycle();
     configured_dry_run_persists_instruments_relative_to_config();
+    configured_dry_run_persists_nse_preferred_instrument_universe();
     configured_dry_run_fails_when_instrument_csv_is_missing();
     cli_mode_overrides_config_mode();
     config_load_errors_are_reported();
